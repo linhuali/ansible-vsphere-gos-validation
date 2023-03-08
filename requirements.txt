@@ -13,4 +13,5 @@ pyvmomi
 passlib
 pytesseract
 Pillow
+vncdotool
 ansible-core==2.15.13

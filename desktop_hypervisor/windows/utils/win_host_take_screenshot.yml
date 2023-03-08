@@ -1,0 +1,21 @@
+# Copyright 2026 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Capture the Windows Workstation host VM console before failure cleanup.
+# Required: host_screenshot_context, current_test_log_folder.
+- name: "Capture Windows host console"
+  when:
+    - host_machine_type | default('') == 'windows'
+    - is_vsphere_env | default(false) | bool
+    - vm_exists | default(false) | bool
+    - current_test_log_folder is defined
+  block:
+    - name: "Take a Windows host screenshot after {{ host_screenshot_context }}"
+      include_tasks: ../../../common/vm_take_screenshot.yml
+      vars:
+        vm_screenshot_local_dir: "{{ current_test_log_folder }}"
+        vm_screenshot_local_name: "host_screenshot_after_{{ host_screenshot_context }}.png"
+  rescue:
+    - name: "Report Windows host screenshot failure"
+      ansible.builtin.debug:
+        msg: "Could not capture the Windows host console: {{ ansible_failed_result.msg | default('unknown error') }}"
