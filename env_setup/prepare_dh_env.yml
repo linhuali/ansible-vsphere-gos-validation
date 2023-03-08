@@ -1,0 +1,36 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Handle Windows host machine situation"
+  block:
+    - name: "Add Windows host to in-memory inventory"
+      include_tasks: ../windows/utils/add_windows_host.yml
+      vars:
+        vm_guest_ip: "{{ host_machine_hostname }}"
+        vm_username: "{{ host_machine_username }}"
+        vm_password: "{{ host_machine_password }}"
+        vm_guest_group: "ws_host"
+    - name: "Get Windows host system info"
+      include_tasks: ../windows/utils/get_windows_system_info.yml
+      vars:
+        vm_guest_ip: "{{ host_machine_hostname }}"
+  when: host_machine_type == "windows"
+
+- name: "Handle Linux host machine situation"
+  block:
+    - name: "Add Linux host to in-memory inventory"
+      include_tasks: ../linux/utils/add_linux_host.yml
+      vars:
+        vm_guest_ip: "{{ host_machine_hostname }}"
+        vm_username: "{{ host_machine_username }}"
+        vm_password: "{{ host_machine_password }}"
+        add_host_in_memory_inventory_ssh_pipeline: true
+        vm_guest_group: "ws_host"
+    - name: "Get Linux host system info"
+      include_tasks: ../linux/utils/get_linux_system_info.yml
+      vars:
+        vm_guest_ip: "{{ host_machine_hostname }}"
+  when: host_machine_type == "linux"
+
+- name: "Get Workstation version and build info"
+  include_tasks: ../desktop_hypervisor/common/workstation_get_version_build.yml

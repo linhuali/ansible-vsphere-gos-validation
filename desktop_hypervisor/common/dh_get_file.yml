@@ -1,0 +1,39 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get specified file from Host OS to local path
+# Parameters:
+#   file_src_path: the source path of the file
+#   file_dst_path: the destination path of the file
+# Return:
+#   file_local_path: The local file path for the fetched guest OS file
+#
+- name: "Copy the vmx file from Windows Host to local"
+  when: host_machine_type == "windows"
+  block:
+    - name: "Get the vmx file to local"
+      include_tasks: ../../windows/utils/win_get_file.yml
+      vars:
+        win_get_file_src_path: "{{ file_src_path }}"
+        win_get_file_dst_path: "{{ file_dst_path }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "Set facts of local vmx path"
+      ansible.builtin.set_fact:
+        file_local_path: "{{ win_fetch_file.dest }}"
+
+- name: "Copy the vmx file from Linux Host to local"
+  when: host_machine_type == "linux"
+  block:
+    - name: "Get the vmx file to local"
+      include_tasks: ../../linux/utils/fetch_file.yml
+      vars:
+        fetch_file_src_path: "{{ file_src_path }}"
+        fetch_file_dst_path: "{{ file_dst_path}}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "Set facts of local vmx path"
+      ansible.builtin.set_fact:
+        file_local_path: "{{ fetch_file_local_path }}"
+
+- name: "Display the fetch file result"
+  when: file_local_path is defined and file_local_path
+  ansible.builtin.debug: var=file_local_path
