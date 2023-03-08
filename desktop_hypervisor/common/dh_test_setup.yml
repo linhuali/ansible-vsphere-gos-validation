@@ -1,0 +1,301 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Handle host VM deployed on ESXi host situation"
+  when: is_vsphere_env
+  block:
+    #- name: "Test setup for host VM"
+    #  include_tasks: "../../{{ host_machine_type }}/setup/test_setup.yml"
+    #  vars:
+    #    create_current_test_folder: "{{ create_dh_test_folder | default(false) }}"
+    - name: "Add Windows host to in-memory inventory"
+      include_tasks: ../../windows/utils/add_windows_host.yml
+      when:
+        - host_machine_type == "windows"
+        - ansible_play_name == "install_workstation"
+    - name: "Update host_machine_hostname in vars/test_dh.yml"
+      ansible.builtin.lineinfile:
+        path: ../../vars/test_dh.yml
+        regexp: '^host_machine_hostname:'
+        line: "host_machine_hostname: {{ vm_guest_ip }}"
+      when: host_machine_hostname is undefined or not host_machine_hostname
+    - name: "Set host machine IP to be variable 'vm_guest_ip' used in utils tasks"
+      ansible.builtin.set_fact:
+        host_machine_hostname: "{{ vm_guest_ip }}"
+        host_machine_username: "{{ vm_username }}"
+        host_machine_password: "{{ vm_password }}"
+      when: ansible_play_name == "install_workstation"
+
+- name: "Handle single host machine situation"
+  when: not is_vsphere_env
+  block:
+    - name: "Set fact of host machine OS type"
+      ansible.builtin.set_fact:
+        host_machine_type: "{{ host_machine_type | lower }}"
+
+- name: "Set current test case index, name and log folder"
+  include_tasks: ../../common/set_current_testcase_facts.yml
+  vars:
+    create_test_log_folder: "{{ create_dh_test_folder | default(false) }}"
+
+- name: "Reset the dh_vm_deploy_method per dh_guest_iso_path"
+  when:
+    - dh_guest_iso_path is defined
+    - dh_guest_iso_path is match('.*.(iso|ova|ovf)')
+    #- ansible_play_name != "install_workstation"
+    - "'workstation' not in ansible_play_name"
+    - "'dh_deploy_vm' not in ansible_play_name"
+  ansible.builtin.set_fact:
+    dh_vm_deploy_method: "{{ dh_guest_iso_path.split('.')[-1] }}"
+
+- name: "Set the default VM folder in Host"
+  ansible.builtin.set_fact:
+    dh_vm_new_name: "{{ dh_vm_name }}_{{ dh_vm_deploy_method }}"
+
+- name: "Test setup for Windows Host VM"
+  when: host_machine_type == "windows"
+  block:
+    - name: "Initialize the facts of Workstation download path"
+      ansible.builtin.set_fact:
+        dh_host_download_path: "C:\\Users\\{{ host_machine_username }}\\Downloads\\"
+    - name: "Set fact of Workstation installed path"
+      ansible.builtin.set_fact:
+        workstation_install_path: 'C:\\Program Files (x86)\\VMware\\VMware Workstation'
+      when: workstation_install_path is undefined or not workstation_install_path
+    - name: "Set the default VM folder in Windows host"
+      when: dh_vm_path is undefined or not dh_vm_path
+      ansible.builtin.set_fact:
+        dh_vm_path: "C:\\Users\\{{ host_machine_username }}\\Documents\\Virtual Machines"
+    - name: "Set fact of VM vmx file path in Windows host"
+      ansible.builtin.set_fact:
+        dh_vm_new_path: "{{ dh_vm_path }}\\{{ dh_vm_new_name }}"
+    - name: "Set fact of VM vmx file path in Windows host"
+      ansible.builtin.set_fact:
+        dh_vm_vmx_path: "{{ dh_vm_new_path }}\\{{ dh_vm_new_name }}.vmx"
+    - name: "Display VM path info"
+      ansible.builtin.debug:
+        msg:
+          - "VM folder parent path: {{ dh_vm_path }}"
+          - "VM vmx file path: {{ dh_vm_vmx_path }}"
+
+    # Test cases depend on Desktop Hypervisor installed in host machine,
+    # 'dh_host_installed' is set to true in test case 'install_workstation',
+    # and will be set to false in test case 'uninstall_workstation (TBD)'.
+    - name: "Check if Workstation is installed in host"
+      include_tasks: win_host_check_workstation.yml
+      when: dh_host_installed is undefined or not dh_host_installed
+
+    - name: "Skip test case"
+      include_tasks: ../../common/skip_test_case.yml
+      vars:
+        skip_msg: "Test case {{ current_testcase_name }} is blocked because Workstation install status: {{ dh_host_installed }} is not true, or Workstation install path: {{ dh_host_installed_path }} is empty."
+        skip_reason: "Blocked"
+      when:
+        - "'workstation' not in ansible_play_name"
+        - (not dh_host_installed) or (not dh_host_installed_path)
+        #- ansible_play_name != "install_workstation"
+
+    #- name: "Set fact of 'vmware-vdiskmanager.exe' tool path"
+    #  when:
+    #    - dh_host_installed_path is defined and dh_host_installed_path
+    #    - dh_host_vdisk_manager_path is undefined or not dh_host_vdisk_manager_path
+    #  ansible.builtin.set_fact:
+    #    dh_host_vdisk_manager_path: "{{ dh_host_installed_path }}\\vmware-vdiskmanager.exe"
+
+    - name: "Set fact of 'vmrun.exe' tool path"
+      when:
+        - dh_host_installed_path is defined and dh_host_installed_path
+        - dh_host_vmrun_path is undefined or not dh_host_vmrun_path
+      ansible.builtin.set_fact:
+        dh_host_vmrun_path: "{{ dh_host_installed_path }}\\vmrun.exe"
+
+    # Test cases except 'dh_deploy_vm' depend on VM deployed on Desktop Hypervisor,
+    # 'dh_vm_exists' is set to true in test case 'dh_deploy_vm'.
+    - name: "Check if VM exists"
+      when:
+        - ansible_play_name != "install_workstation"
+        - dh_host_installed
+      block:
+        - name: "Get VM existence status"
+          include_tasks: dh_host_check_vm_exists.yml
+        - name: "Set fact of VM existence status"
+          ansible.builtin.set_fact:
+            dh_vm_exists: "{{ dh_vm_check_exist }}"
+            dh_vm_vmx_exists: "{{ dh_vm_vmx_check_exist }}"
+
+    - name: "Stop VMs if running before un/install_workstation"
+      include_tasks: dh_host_stop_vms.yml
+      when:
+        - "'workstation' in ansible_play_name"
+        - dh_host_installed
+
+- name: "Test setup for Linux Host VM"
+  when: host_machine_type == "linux"
+  block:
+    - name: "Initialize the facts of Download path for root"
+      when: host_machine_username == "root"
+      ansible.builtin.set_fact:
+        dh_host_download_path: "/{{ host_machine_username }}"
+    - name: "Initialize the facts of Download path for non-root"
+      when: host_machine_username != "root"
+      ansible.builtin.set_fact:
+        dh_host_download_path: "/home/{{ host_machine_username }}"
+    - name: "Set the default VM folder in Linux host"
+      ansible.builtin.set_fact:
+        dh_vm_path: "{{ dh_host_download_path }}/{{ dh_vm_new_name }}"
+    - name: "Set fact of VM path in Linux host"
+      ansible.builtin.set_fact:
+        dh_vm_vmx_path: "{{ dh_vm_path }}/{{ dh_vm_new_name }}.vmx"
+        vm_dir_name: "{{ dh_vm_path }}"
+
+    - name: "Display VM path info"
+      ansible.builtin.debug:
+        msg:
+          - "VM folder parent path: {{ dh_vm_path }}"
+          - "VM vmx file path: {{ dh_vm_vmx_path }}"
+
+    - name: "Check if Workstation is installed in host"
+      include_tasks: lin_host_check_workstation.yml
+      when: dh_host_installed is undefined or not dh_host_installed
+
+    - name: "Set fact of 'vmrun' tool path"
+      when:
+        - dh_host_installed
+        - dh_host_vmrun_path is undefined or not dh_host_vmrun_path
+      block:
+        - name: "Get vmrun installed path in Linux host"
+          ansible.builtin.shell: "which vmrun"
+          delegate_to: "{{ host_machine_hostname }}"
+          register: lin_software_install_path
+        - name: "Set fact of vmrun installed path"
+          ansible.builtin.set_fact:
+            dh_host_vmrun_path: "{{ lin_software_install_path.stdout }}"
+
+    - name: "Skip test case"
+      when:
+        - (not dh_host_installed) or (not dh_host_installed_path)
+        #- ansible_play_name != "install_workstation"
+        - "'workstation' not in ansible_play_name"
+      include_tasks: ../../common/skip_test_case.yml
+      vars:
+        skip_msg: "Test case {{ current_testcase_name }} is blocked because Workstation install status: {{ dh_host_installed }} is not true, or Workstation install path: {{ dh_host_installed_path }} is empty."
+        skip_reason: "Blocked"
+
+    # Test cases except 'dh_deploy_vm' depend on VM deployed on Desktop Hypervisor,
+    # 'dh_vm_exists' is set to true in test case 'dh_deploy_vm'.
+    - name: "Check if VM exists"
+      when:
+        - ansible_play_name != "install_workstation"
+        - dh_host_installed
+      block:
+        - name: "Get VM existence status"
+          include_tasks: dh_host_check_vm_exists.yml
+        - name: "Set fact of VM existence status"
+          ansible.builtin.set_fact:
+            dh_vm_exists: "{{ dh_vm_check_exist }}"
+            dh_vm_vmx_exists: "{{ dh_vm_vmx_check_exist }}"
+
+    - name: "Stop VMs if running before un/install_workstation"
+      include_tasks: dh_host_stop_vms.yml
+      when:
+        - "'workstation' in ansible_play_name"
+        - dh_host_installed
+        #- dh_vm_exists is defined and dh_vm_exists
+
+- name: "Power off Guest if it's running"
+  when:
+    - dh_vm_exists is defined
+    - dh_vm_exists
+    - "'dh_deploy_vm' in ansible_play_name"
+  include_tasks: dh_host_power_vm.yml
+  vars:
+    vm_power_option: "stop"
+
+- name: "Get Guest VM Info"
+  when:
+    #- ansible_play_name != "install_workstation"
+    - "'workstation' not in ansible_play_name"
+    - "'dh_deploy_vm' not in ansible_play_name"
+  block:
+    - name: "Check base snapshot existence and/or revert to it"
+      when: ansible_play_name != "check_browser_in_guest"
+      include_tasks: dh_vm_base_snapshot_check_revert.yml
+    - name: "Get the guestID"
+      include_tasks: dh_get_guestid.yml
+    - name: "Power on VM"
+      when: not dh_vm_exists
+      include_tasks: dh_host_power_vm.yml
+      vars:
+        vm_power_option: "start"
+    - name: "Get VMTools version"
+      include_tasks: dh_get_guest_vmtools.yml
+    - name: "Get VM guest info including detailed data"
+      include_tasks: dh_get_guest_info.yml
+
+- name: "Get Linux Guest Info for ovt_verify test preparation"
+  when:
+    #- ansible_play_name != "install_workstation"
+    - "'workstation' not in ansible_play_name"
+    - "'ovt_verify' in ansible_play_name"
+    - dh_guest_id is not match('.*(W|w)in.*')
+    - dh_guest_id is not match('.*rhel(5|6).*')
+    - dh_guest_id is not match('.*other.*linux.*')
+  block:
+    - name: "Set vm as bridged to get a real IP"
+      include_tasks: set_vm_connection_type.yml
+    - name: "Add Linux Guest to in-memory inventory"
+      include_tasks: ../../linux/utils/add_linux_host.yml
+      vars:
+        vm_guest_ip: "{{ dh_vm_guest_ip }}"
+        vm_username: "{{ dh_vm_username }}"
+        vm_password: "{{ dh_vm_password }}"
+        add_host_in_memory_inventory_ssh_pipeline: true
+        vm_guest_group: "ws_guest"
+    - name: "Get Linux VM info"
+      include_tasks: ../../linux/utils/get_linux_system_info.yml
+      vars:
+        vm_guest_ip: "{{ dh_vm_guest_ip }}"
+    - name: "Get VMware Tools version and build"
+      include_tasks: ../../linux/utils/get_guest_ovt_version_build.yml
+      vars:
+        vm_guest_ip: "{{ dh_vm_guest_ip }}"
+
+- name: "Skip test case"
+  when:
+    #- ansible_play_name != "install_workstation"
+    - "'workstation' not in ansible_play_name"
+    - "'dh_deploy_vm' not in ansible_play_name"
+    - require_dh_vm_exists | default(true)
+    - dh_vm_exists is undefined or not dh_vm_exists
+    - dh_vm_vmx_exists is undefined or not dh_vm_vmx_exists
+  include_tasks: ../../common/skip_test_case.yml
+  vars:
+    skip_msg: "Test case '{{ current_testcase_name }}' is blocked because VM '{{ dh_vm_new_name }}' does not exist."
+    skip_reason: "Blocked"
+
+- name: "Skip test case check_browser_in_guest"
+  when: ansible_play_name == "check_browser_in_guest"
+  block:
+    - name: "Power off VM and skip the testcase"
+      when: >
+        dh_guest_id is match('.*photon.*') or
+        dh_guest_id is match('.*fedora.*') or
+        dh_guest_id is match('.*solaris.*') or
+        dh_guest_id is match('.*free(bsd|BSD).*') or
+        dh_guest_id is match('.*other.*linux.*') or
+        dh_guest_id is match('.*(v|V)ista.*') or
+        dh_guest_id is match('.*(xp|XP).*') or
+        dh_guest_id is match('winNet.*') or
+        dh_guest_id is match('.*2000.*') or
+        dh_guest_id is match('.*(L|l)onghorn.*')
+      block:
+        - name: "Power off VM when it's running"
+          when: dh_vm_exists
+          include_tasks: dh_host_power_vm.yml
+          vars:
+            vm_power_option: "stop"
+        - name: "Skip testcase {{ current_testcase_name }}  "
+          include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Skip test case due to {{ dh_guest_id }} is not supported by {{ current_testcase_name }}"
+            skip_reason: "Not Supported"
