@@ -1,0 +1,30 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Check workstation installed or not"
+  #when: dh_host_installed is undefined or not dh_host_installed
+  block:
+    - name: "Check workstation file exists or not"
+      ansible.builtin.stat:
+        path: "/usr/bin/vmware"
+      register: stat_result
+      ignore_errors: true
+      delegate_to: "{{ host_machine_hostname }}"
+      become: true
+      become_user: "{{ dh_vm_username }}"
+    - name: "Set workstation installed or not"
+      ansible.builtin.set_fact:
+        dh_host_installed: "{{ stat_result.stat.exists | default(false) }}"
+
+- name: "Get Workstation installed path"
+  when:
+    - dh_host_installed
+    - dh_host_installed_path is undefined or not dh_host_installed_path
+  block:
+    - name: "Get Workstation installed path in Linux host"
+      ansible.builtin.shell: "which vmware"
+      delegate_to: "{{ host_machine_hostname }}"
+      register: lin_software_install_path
+    - name: "Set fact of Workstation installed path"
+      ansible.builtin.set_fact:
+        dh_host_installed_path: "{{ lin_software_install_path.stdout }}"
