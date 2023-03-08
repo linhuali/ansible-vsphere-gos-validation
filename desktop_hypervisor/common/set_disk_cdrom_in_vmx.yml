@@ -1,0 +1,172 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# According to the disk controller and disk info, set configs in
+# VM's vmx file.
+# Parameters:
+#   dh_vm_vmx_file_path: the vmx file path to be changed.
+#   dh_vm_disk_controller_type: the disk controller type, valid values are 'nvme', 'sata',
+#   dh_vm_disk_controller_num: the bus number of disk controller.
+#   dh_vm_disk_unit_num: the unit number of disk attached to disk controller.
+#   dh_vm_boot_disk_file: the name of disk vmdk file in VM folder.
+#
+- name: "Initialize the facts of disk config list and cdrom config list"
+  ansible.builtin.set_fact:
+    disk_config_vmx: []
+    cdrom_config_vmx: []
+
+- name: "Set fact of disk controller type to lower case"
+  ansible.builtin.set_fact:
+    dh_vm_boot_disk_controller: "{{ dh_vm_boot_disk_controller | lower }}"
+
+- name: "Set fact of BusLogic disk config in vmx"
+  when: dh_vm_boot_disk_controller == 'buslogic'
+  ansible.builtin.set_fact:
+    disk_config_vmx:
+      - scsi0.present = "TRUE"
+      - scsi0:0.fileName = "{{ dh_vm_boot_disk_file }}"
+      - scsi0:0.present = "TRUE"
+
+- name: "Set fact of NVMe disk config in vmx"
+  when: >
+    (dh_vm_boot_disk_controller == 'nvme') or
+    (dh_vm_boot_disk_controller == 'sata')
+  ansible.builtin.set_fact:
+    disk_config_vmx:
+      - >-
+        {{ dh_vm_boot_disk_controller }}0.present = "TRUE"
+      - >-
+        {{ dh_vm_boot_disk_controller }}0:0.fileName = "{{ dh_vm_boot_disk_file }}"
+      - >-
+        {{ dh_vm_boot_disk_controller }}0:0.present = "TRUE"
+
+- name: "Set fact of IDE disk config in vmx"
+  when: dh_vm_boot_disk_controller == 'ide'
+  ansible.builtin.set_fact:
+    disk_config_vmx:
+      - ide0:0.fileName = "{{ dh_vm_boot_disk_file }}"
+      - ide0:0.present = "TRUE"
+
+- name: "Set fact of SCSI disk config in vmx"
+  when: dh_vm_boot_disk_controller in ['lsilogicsas', 'lsilogic', 'pvscsi']
+  ansible.builtin.set_fact:
+    disk_config_vmx:
+      - scsi0.virtualDev = "{{ 'lsisas1068' if (dh_vm_boot_disk_controller == 'lsilogicsas') else dh_vm_boot_disk_controller }}"
+      - scsi0.present = "TRUE"
+      - scsi0:0.fileName = "{{ dh_vm_boot_disk_file }}"
+      - scsi0:0.present = "TRUE"
+
+- name: "Set fact of CDROM type"
+  ansible.builtin.set_fact:
+    cdrom_type: "{{ 'cdrom-image' if not dh_vm_cdrom_use_physical else 'cdrom-raw' }}"
+
+- name: "Set fact of SATA CDROM config in vmx"
+  when: dh_vm_cdrom_controller | lower == 'sata'
+  block:
+    - name: "Disk controller is not SATA"
+      when: dh_vm_boot_disk_controller != 'sata'
+      ansible.builtin.set_fact:
+        cdrom_config_vmx:
+          - sata0.present = "TRUE"
+          - sata0:0.deviceType = "{{ cdrom_type }}"
+          - sata0:0.fileName = "{{ dh_guest_iso_path }}"
+          - sata0:0.present = "TRUE"
+          - sata0:1.deviceType = "cdrom-image"
+          - sata0:1.fileName = "{{ unattend_install_iso }}"
+          - sata0:1.present = "TRUE"
+    - name: "Disk controller is SATA"
+      when: dh_vm_boot_disk_controller == 'sata'
+      ansible.builtin.set_fact:
+        cdrom_config_vmx:
+          - sata0:1.deviceType = "{{ cdrom_type }}"
+          - sata0:1.fileName = "{{ dh_guest_iso_path }}"
+          - sata0:1.present = "TRUE"
+          - sata0:2.deviceType = "cdrom-image"
+          - sata0:2.fileName = "{{ unattend_install_iso }}"
+    - name: "VMTools for Windows"
+      when: host_machine_type == "windows"
+      ansible.builtin.set_fact:
+        wintools_config_vmx:
+          - sata0:3.present = "TRUE"
+          - sata0:3.deviceType = "cdrom-image"
+          - sata0:3.fileName = "{{ dh_vm_tools_path }}"
+
+- name: "Set fact of IDE CDROM config in vmx"
+  when: dh_vm_cdrom_controller | lower == 'ide'
+  block:
+    - name: "Disk controller is not IDE"
+      when: dh_vm_boot_disk_controller != 'ide'
+      ansible.builtin.set_fact:
+        cdrom_config_vmx:
+          - ide0:0.deviceType = "{{ cdrom_type }}"
+          - ide0:0.fileName = "{{ dh_guest_iso_path }}"
+          - ide0:0.present = "TRUE"
+          - ide0:1.deviceType = "cdrom-image"
+          - ide0:1.fileName = "{{ unattend_install_iso }}"
+          - ide0:1.present = "TRUE"
+    - name: "Disk controller is IDE"
+      when: dh_vm_boot_disk_controller == 'ide'
+      ansible.builtin.set_fact:
+        cdrom_config_vmx:
+          - ide0:1.deviceType = "{{ cdrom_type }}"
+          - ide0:1.fileName = "{{ dh_guest_iso_path }}"
+          - ide0:1.present = "TRUE"
+          - ide1:0.deviceType = "cdrom-image"
+          - ide1:0.fileName = "{{ unattend_install_iso }}"
+          - ide1:0.present = "TRUE"
+    - name: "VMTools for Windows"
+      when: host_machine_type == "windows"
+      ansible.builtin.set_fact:
+        wintools_config_vmx:
+          - ide0:3.deviceType = "cdrom-image"
+          - ide0:3.fileName = "{{ dh_vm_tools_path }}"
+          - ide0:3.present = "TRUE"
+
+- name: "Set fact of SCSI CDROM config in vmx"
+  when: dh_vm_cdrom_controller | lower == 'scsi'
+  block:
+    - name: "Disk controller is not SCSI"
+      when: dh_vm_boot_disk_controller not in ['buslogic', 'lsilogicsas', 'lsilogic', 'pvscsi']
+      ansible.builtin.set_fact:
+        cdrom_config_vmx:
+          - scsi0.present = "TRUE"
+          - scsi0.virtualDev = "lsisas1068"
+          - scsi0:0.deviceType = "{{ cdrom_type }}"
+          - scsi0:0.fileName = "{{ dh_guest_iso_path }}"
+          - scsi0:0.present = "TRUE"
+          - scsi0:1.deviceType = "cdrom-image"
+          - scsi0:1.fileName = "{{ unattend_install_iso }}"
+          - scsi0:1.present = "TRUE"
+    - name: "Disk controller is SCSI"
+      when: dh_vm_boot_disk_controller in ['buslogic', 'lsilogicsas', 'lsilogic', 'pvscsi']
+      ansible.builtin.set_fact:
+        cdrom_config_vmx:
+          - scsi0:1.deviceType = "{{ cdrom_type }}"
+          - scsi0:1.fileName = "{{ dh_guest_iso_path }}"
+          - scsi0:1.present = "TRUE"
+          - scsi0:2.deviceType = "cdrom-image"
+          - scsi0:2.fileName = "{{ unattend_install_iso }}"
+          - scsi0:2.present = "TRUE"
+    - name: "VMTools for Windows"
+      when: host_machine_type == "windows"
+      ansible.builtin.set_fact:
+        wintools_config_vmx:
+          - scsi0:3.deviceType = "cdrom-image"
+          - scsi0:3.fileName = "{{ dh_vm_tools_path }}"
+          - scsi0:3.present = "TRUE"
+
+- name: "Add VM disk and CDROM config to vmx"
+  when: host_machine_type == "windows"
+  ansible.builtin.lineinfile:
+    path: "{{ dh_vm_vmx_file_local }}"
+    line: "{{ item }}"
+    state: present
+  with_items: "{{ disk_config_vmx + cdrom_config_vmx + wintools_config_vmx }}"
+
+- name: "Add VM disk and CDROM config to vmx"
+  when: host_machine_type == "linux"
+  ansible.builtin.lineinfile:
+    path: "{{ dh_vm_vmx_file_local }}"
+    line: "{{ item }}"
+    state: present
+  with_items: "{{ disk_config_vmx + cdrom_config_vmx }}"

@@ -61,6 +61,13 @@
   ansible.builtin.pause:
     seconds: 30
 - name: "Restart guest OS after VMware Tools install"
+  when: not in_desktop_hypervisor_testing
   include_tasks: ../utils/win_shutdown_restart.yml
   vars:
     set_win_power_state: "restart"
+
+- name: "Reboot vm in desktop hypervisor"
+  when: in_desktop_hypervisor_testing
+  include_tasks: ../../desktop_hypervisor/common/dh_host_power_vm.yml
+  vars:
+    vm_power_option: "reset"

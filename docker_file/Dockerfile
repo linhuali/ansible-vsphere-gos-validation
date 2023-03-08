@@ -11,7 +11,7 @@ RUN tdnf makecache && \
     tdnf install -y python3 zip vim wget python3-pip \
     sshpass gawk nfs-utils iana-etc python3-lxml python3-setuptools \
     python3-wheel  python3-jmespath python3-netaddr && \
-    pip3 install pycdlib pywinrm pyvmomi pypsrp passlib
+    pip3 install pycdlib pywinrm pyvmomi pypsrp passlib vncdotool
 
 # Install ansible-core
 RUN pip3 install ansible-core==2.15.8
