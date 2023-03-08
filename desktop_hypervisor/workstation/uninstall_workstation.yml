@@ -1,0 +1,46 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Description:
+#   This test case is used for uninstalling Workstation in Linux or Windows machine.
+#
+- name: uninstall_workstation
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: "Test case block"
+      block:
+        - name: "Set fact of current test case name"
+          ansible.builtin.set_fact:
+            current_testcase_name: "uninstall_workstation_in_{{ host_machine_type }}_host"
+        - name: "Set fact of current test case name for nested host"
+          ansible.builtin.set_fact:
+            current_testcase_name: "{{ current_testcase_name ~ '_vm' }}"
+          when: is_vsphere_env
+
+        - name: "Test setup"
+          include_tasks: ../common/dh_test_setup.yml
+          vars:
+            create_dh_test_folder: true
+
+        - name: "Skip test case"
+          include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Test case '{{ ansible_play_name }}' is blocked because Workstation is not installed"
+            skip_reason: "Blocked"
+          when: dh_host_installed is undefined or not (dh_host_installed | bool)
+
+        - name: "Uninstall Workstation in Windows host"
+          when: host_machine_type == "windows"
+          include_tasks: uninstall_ws_windows_host.yml
+
+        - name: "Uninstall Workstation in Linux host"
+          when: host_machine_type == "linux"
+          include_tasks: uninstall_ws_linux_host.yml
+
+      rescue:
+        - name: "Test case failure"
+          include_tasks: ../../common/test_rescue.yml
+          vars:
+            exit_testing_when_fail: true
+          #when: is_vsphere_env
