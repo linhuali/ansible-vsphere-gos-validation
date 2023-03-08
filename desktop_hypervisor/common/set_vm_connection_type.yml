@@ -1,0 +1,92 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Get the vmx file to local"
+  include_tasks: dh_get_file.yml
+  vars:
+    file_src_path: "{{ dh_vm_vmx_path }}"
+    file_dst_path: "{{ current_test_log_folder }}"
+
+- name: "Set fact of local vmx path"
+  ansible.builtin.set_fact:
+    dh_vm_vmx_file_local: "{{ file_local_path }}"
+
+- name: "Set facts of network connection type"
+  ansible.builtin.set_fact:
+    dh_vm_connection_type: "bridged"
+
+- name: "Get VM existence status"
+  when: dh_vm_check_exist
+  include_tasks: dh_host_check_vm_exists.yml
+- name: "Stop Guest VM"
+  include_tasks: dh_host_power_vm.yml
+  vars:
+    vm_power_option: "stop"
+
+- name: "Update vmx file with network connection type"
+  when: dh_vm_vmx_file_local is defined and dh_vm_vmx_file_local
+  block:
+    - name: "Update vmx file with network connection type as {{ dh_vm_connection_type }}"
+      include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
+      vars:
+        file: "{{ dh_vm_vmx_file_local }}"
+        line_content: "ethernet0.connectionType = \"{{ dh_vm_connection_type }}\""
+        reg_exp: "ethernet0.connectionType.*"
+        vm_guest_ip: localhost
+    - name: "Update vmx file with serial port as false"
+      include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
+      vars:
+        file: "{{ dh_vm_vmx_file_local }}"
+        line_content: "serial0.present = \"FALSE\""
+        reg_exp: "serial0.present.*"
+        vm_guest_ip: localhost
+    - name: "Update vm file with cdrom in Windows Host"
+      when: host_machine_type == "windows"
+      block:
+        - name: "Update vmx file with sata0:0.fileName as vmtools iso"
+          include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
+          vars:
+            file: "{{ dh_vm_vmx_file_local }}"
+            line_content: "sata0:0.fileName = \"{{ dh_vm_tools_path }}\""
+            reg_exp: "sata0:0.fileName.*"
+            vm_guest_ip: localhost
+        - name: "Update vmx file with sata0:1 as false"
+          include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
+          vars:
+            file: "{{ dh_vm_vmx_file_local }}"
+            line_content: "sata0:1.present = \"FALSE\""
+            reg_exp: "sata0:1.present.*"
+            vm_guest_ip: localhost
+        - name: "Update vmx file with sata0:3 as false"
+          include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
+          vars:
+            file: "{{ dh_vm_vmx_file_local }}"
+            line_content: "sata0:3.present = \"FALSE\""
+            reg_exp: "sata0:3.present.*"
+            vm_guest_ip: localhost
+
+- name: "Copy new VM vmx file from local to Windows host"
+  when: host_machine_type == "windows"
+  include_tasks: ../../windows/utils/win_copy_file_from_local.yml
+  vars:
+    src_path_local: "{{ dh_vm_vmx_file_local }}"
+    dest_path_remote: "{{ dh_vm_vmx_path }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Copy new VM vmx file from local to Linux host"
+  when: host_machine_type == "linux"
+  include_tasks: ../../common/transfer_file_remote.yml
+  vars:
+    transfer_file_remote_src: "{{ dh_vm_vmx_file_local }}"
+    transfer_file_remote_dest: "{{ dh_vm_vmx_path }}"
+    transfer_file_remote_server: "{{ host_machine_hostname }}"
+    transfer_file_remote_mode: "0777"
+    transfer_file_remote_force: "true"
+
+- name: "Power on VM"
+  include_tasks: dh_host_power_vm.yml
+  vars:
+    vm_power_option: "start"
+
+- name: "Get Guest VM IP"
+  include_tasks: dh_host_get_guest_ip.yml
