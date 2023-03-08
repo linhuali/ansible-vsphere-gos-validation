@@ -1,0 +1,58 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Check Desktop Hypervisor testing variables
+#
+# Below 3 VM variables are required
+- name: "Check VM information is provided"
+  ansible.builtin.assert:
+    that:
+      - dh_vm_name is defined and dh_vm_name
+      - dh_vm_username is defined and dh_vm_username
+      - dh_vm_password is defined and dh_vm_password
+    fail_msg: "Parameters: dh_vm_name, dh_vm_username and dh_vm_password must be set to valid values."
+
+- name: "Check username is root for existing Linux VM"
+  ansible.builtin.assert:
+    that:
+      - dh_vm_username == "root"
+    fail_msg: "Existing VM must use root to run test"
+  when:
+    - dh_new_vm is undefined or not dh_new_vm | bool
+    - testing_testcase_file | dirname | basename == "linux"
+
+- name: "Handle create new VM situation"
+  block:
+    - name: "Check VM deploy method"
+      ansible.builtin.assert:
+        that:
+          - dh_vm_deploy_method | lower in ['iso', 'ova']
+        fail_msg: "Parameter 'dh_vm_deploy_method' must be set to 'iso' or 'ova'."
+      when: dh_vm_deploy_method is defined
+    - name: "Handle deploy VM from ISO situation"
+      block:
+        - name: "Check VM guest ID and hardware version"
+          ansible.builtin.assert:
+            that:
+              - dh_vm_guest_id is defined and dh_vm_guest_id
+              - dh_vm_hardware_version is undefined or dh_vm_hardware_version | int >= 13
+            fail_msg: "Parameters 'dh_vm_guest_id', 'dh_vm_hardware_version' must be set to valid values."
+        - name: "Check guest OS ISO image"
+          ansible.builtin.assert:
+            that:
+              - dh_guest_iso_path is defined and dh_guest_iso_path
+            fail_msg: "Parameter 'dh_guest_iso_path' must be configured to the ISO file path."
+        - name: "Check VM firmware"
+          ansible.builtin.assert:
+            that:
+              - dh_vm_firmware | lower in ['bios', 'efi']
+            fail_msg: "Parameter 'dh_vm_firmware' valid values are 'bios', 'efi'."
+          when: dh_vm_firmware is defined and dh_vm_firmware
+        - name: "Check VM disk controller type"
+          ansible.builtin.assert:
+            that:
+              - dh_vm_boot_disk_controller | lower in ['buslogic', 'lsilogic', 'lsilogicsas', 'pvscsi', 'sata', 'ide', 'nvme']
+            fail_msg: "Parameter 'dh_vm_boot_disk_controller' valid values are 'buslogic', 'lsilogic', 'lsilogicsas', 'pvscsi', 'sata', 'ide', 'nvme'."
+          when: dh_vm_boot_disk_controller is defined and dh_vm_boot_disk_controller
+      when: dh_vm_deploy_method is defined and dh_vm_deploy_method | lower == 'iso'
+  when: dh_new_vm is defined and dh_new_vm | bool
