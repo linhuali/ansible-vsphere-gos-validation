@@ -1,0 +1,66 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Check ovftool  exists or not"
+  include_tasks: check_ovftool_exists.yml
+
+- name: "Initialize the facts of Guest vmx path"
+  ansible.builtin.set_fact:
+    dh_guest_vm_extracted: false
+
+- name: "Extract OVF to VMX in Windows Host"
+  when: host_machine_type == "windows"
+  block:
+    - name: "Create new folder for VM in Windows host"
+      ansible.windows.win_shell: |
+        if ($(Test-Path "{{ dh_vm_new_path }}")) {
+          Remove-Item -Path "{{ dh_vm_new_path }}" -Recurse
+        }
+        New-Item -ItemType 'directory' -Path "{{ dh_vm_new_path }}"
+      delegate_to: "{{ host_machine_hostname }}"
+      become: "{{ win_execute_cmd_become | default(false) }}"
+      become_method: runas
+      become_user: "{{ win_execute_cmd_become_user | default('Administrator') }}"
+    - name: "Extract OVF to VMX using ovftool"
+      ansible.windows.win_command:
+        cmd: '"{{ dh_host_ovftool_path }}" --overwrite --skipManifestCheck {{ dh_guest_image_path }} "{{ dh_vm_vmx_path }}"'
+      delegate_to: "{{ host_machine_hostname }}"
+      become: "{{ win_execute_cmd_become | default(false) }}"
+      become_method: runas
+      become_user: "{{ win_execute_cmd_become_user | default('Administrator') }}"
+      register: extract_ovf_result
+      failed_when: >
+        ( extract_ovf_result.stdout is defined and 'Error' in extract_ovf_result.stdout )
+        or
+        ( extract_ovf_result.stderr is defined and 'Error' in extract_ovf_result.stderr )
+
+- name: "Extract OVF to VMX in Linux Host"
+  when: host_machine_type == "linux"
+  block:
+    - name: "Extract OVF to VMX using ovftool"
+      ansible.builtin.shell: |
+        if [ -d {{ dh_vm_path }} ]; then rm -rf {{ dh_vm_path }}; fi
+        if [ "{{ dh_vm_deploy_method }}" = "ovf" ]; then
+          ovftool --overwrite --skipManifestCheck --name="{{ dh_vm_new_name }}" {{ dh_guest_image_path }} {{ dh_host_download_path }}
+        else
+          curl -L -o {{ dh_host_download_path }}/{{ dh_vm_new_name }}.ova {{ dh_guest_image_path }}
+          ovftool --overwrite --skipManifestCheck --name="{{ dh_vm_new_name }}" --acceptAllEulas {{ dh_host_download_path }}/{{ dh_vm_new_name }}.ova {{ dh_host_download_path }}
+        fi
+      register: extract_ovf_result
+      failed_when: >
+        ( extract_ovf_result.stdout is defined and 'Error' in extract_ovf_result.stdout )
+        or
+        ( extract_ovf_result.stderr is defined and 'Error' in extract_ovf_result.stderr )
+      delegate_to: "{{ host_machine_hostname }}"
+    - name: "Chmod to guest vm files "
+      ansible.builtin.shell: "chmod -R 0777 {{ dh_vm_path }}"
+      delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Set the result of ovf extract"
+  when: >
+    ( extract_ovf_result.stderr is not defined or not extract_ovf_result.stderr )
+    or
+    ( extract_ovf_result.stderr is defined and 'Error' not in extract_ovf_result.stderr )
+  ansible.builtin.set_fact:
+    dh_guest_vm_extracted: true
+    #dh_guest_vm_path: "{{ extract_ovf_result.stdout_lines | select ('match', 'Writing VMX file:.*.vmx', ignorecase=True) | regex_findall('/.*.vmx') | first }}"
