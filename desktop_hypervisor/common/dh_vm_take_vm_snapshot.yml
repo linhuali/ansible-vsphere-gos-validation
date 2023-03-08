@@ -1,0 +1,60 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Take a snapshot of VM on Windows or Linux host
+# Parameters:
+#   take_snapshot_name: the snapshot name to be taken
+#
+- name: "Take snapshot for guest on Windows Host"
+  when: host_machine_type == "windows"
+  block:
+    - name: "Set fact of vmrun command for taking snapshot"
+      ansible.builtin.set_fact:
+        win_vmrun_take_snapshot_cmd: >-
+          Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws snapshot "{{ dh_vm_vmx_path }}" "{{ take_snapshot_name }}"' -NoNewWindow
+
+    - name: "Taking a snapshot of VM"
+      include_tasks: ../../windows/utils/win_execute_cmd.yml
+      vars:
+        win_powershell_cmd: "{{ win_vmrun_take_snapshot_cmd }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+
+    - name: "Get VM snapshot status"
+      include_tasks: ../../windows/utils/win_execute_cmd.yml
+      vars:
+        win_powershell_cmd: >-
+          Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws listSnapshots "{{ dh_vm_vmx_path }}"' -NoNewWindow
+        vm_guest_ip: "{{ host_machine_hostname }}"
+
+    - name: "Display the VM snapshots"
+      ansible.builtin.debug: var=win_powershell_cmd_output.stdout_lines
+
+- name: "Take snapshot for guest on Linux Host"
+  when: host_machine_type == "linux"
+  block:
+    - name: "Taking a snapshot of VM"
+      ansible.builtin.shell: |
+        {{ dh_host_vmrun_path }} -T ws snapshot {{ dh_vm_vmx_path }} {{ take_snapshot_name }}
+      delegate_to: "{{ host_machine_hostname }}"
+      become: true
+      become_user: "{{ dh_vm_username }}"
+      register: vmrun_result
+      failed_when:
+        - vmrun_result.stderr is defined
+        - vmrun_result.stderr | length != 0
+        - "'Error' in vmrun_result.stderr"
+
+    - name: "Get VM snapshot status"
+      ansible.builtin.shell: |
+        {{ dh_host_vmrun_path }} -T ws listSnapshots {{ dh_vm_vmx_path }}
+      delegate_to: "{{ host_machine_hostname }}"
+      become: true
+      become_user: "{{ dh_vm_username }}"
+      register: vmrun_result
+      failed_when:
+        - vmrun_result.stderr is defined
+        - vmrun_result.stderr | length != 0
+        - "'Error' in vmrun_result.stderr"
+
+    - name: "Display the VM snapshots"
+      ansible.builtin.debug: var=vmrun_result.stdout_lines
