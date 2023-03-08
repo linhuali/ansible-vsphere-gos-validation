@@ -1,0 +1,26 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Check if Workstation is installed in host"
+  #when: dh_host_installed is undefined or not dh_host_installed
+  block:
+    - name: "Get Workstation install status in Windows host"
+      include_tasks: ../../windows/utils/win_get_software_install_status.yml
+      vars:
+        win_software_name: "VMware Workstation"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "Set fact of Workstation install status"
+      ansible.builtin.set_fact:
+        dh_host_installed: "{{ win_software_is_installed }}"
+
+- name: "Get Workstation installed path"
+  when: dh_host_installed
+  block:
+    - name: "Get Workstation installed path in Windows host"
+      include_tasks: ../../windows/utils/win_get_software_install_path.yml
+      vars:
+        win_software_name: "VMware Workstation"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "Set fact of Workstation installed path"
+      ansible.builtin.set_fact:
+        dh_host_installed_path: "{{ win_software_install_path }}"
