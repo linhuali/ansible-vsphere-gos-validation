@@ -1,0 +1,26 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get firmware virtualization enabled status in guest OS
+#
+- name: "Initialize firmware virtualization status"
+  ansible.builtin.set_fact:
+    win_firmware_virtual_status: false
+
+- name: "Get firmware virtualization status"
+  include_tasks: win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "(gwmi -Class Win32_Processor).VirtualizationFirmwareEnabled"
+
+- name: "Set fact of firmware virtualization status"
+  ansible.builtin.set_fact:
+    win_firmware_virtual_status: "{{ win_powershell_cmd_output.stdout_lines[0] }}"
+  when:
+    - win_powershell_cmd_output.rc is defined
+    - win_powershell_cmd_output.rc == 0
+    - win_powershell_cmd_output.stdout_lines is defined
+    - win_powershell_cmd_output.stdout_lines | length != 0
+
+- name: "Display the result"
+  ansible.builtin.debug:
+    msg: "VirtualizationFirmwareEnabled: {{ win_firmware_virtual_status }}"

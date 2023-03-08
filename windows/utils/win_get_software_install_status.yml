@@ -1,0 +1,35 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Check if specified software in the installed software list in Windows guest OS.
+# Parameters:
+#   win_software_name: the software name to be checked.
+#
+- name: "Check required parameter"
+  ansible.builtin.assert:
+    that:
+      - win_software_name is defined
+      - win_software_name
+    fail_msg: "Parameter 'win_software_name' must be defined and set to a valid value: {{ win_software_name | default('') }}"
+
+- name: "Initialize install status of software"
+  ansible.builtin.set_fact:
+    win_software_is_installed: false
+
+- name: "Get installed software list"
+  include_tasks: win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "Get-WmiObject -class Win32_Product | foreach {$_.Name}"
+
+- name: "Set fact of the install status of software"
+  ansible.builtin.set_fact:
+    win_software_is_installed: true
+  when:
+    - win_powershell_cmd_output.rc is defined
+    - win_powershell_cmd_output.rc == 0
+    - win_powershell_cmd_output.stdout_lines is defined
+    - "win_software_name in win_powershell_cmd_output.stdout_lines"
+
+- name: "Display software install status"
+  ansible.builtin.debug:
+    msg: "'{{ win_software_name }}' is installed in Windows: '{{ win_software_is_installed }}'"
