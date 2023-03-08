@@ -762,7 +762,7 @@
       <package>kdump</package>
       <package>irqbalance</package>
 {% if firmware is defined and firmware | lower == 'efi' %}
-      {% if esxi_cpu_vendor == 'arm' -%}
+      {% if esxi_cpu_vendor|default('intel') == 'arm' -%}
       <package>grub2-arm64-efi</package>
       {% else -%}
       <package>grub2-x86_64-efi</package>

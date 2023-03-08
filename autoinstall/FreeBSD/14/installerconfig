@@ -14,7 +14,7 @@ export ZFSBOOT_DISKS=ada0
 export ZFSBOOT_DISKS=da0
 {% endif %}
 
-{% if guest_id.find('64Guest') != -1 %}
+{% if guest_id.find('64Guest') != -1 or dh_vm_guest_id.find('64') != -1 %}
 DISTRIBUTIONS="kernel.txz base.txz kernel-dbg.txz lib32.txz src.txz ports.txz"
 export ZFSBOOT_BOOT_TYPE="BIOS+UEFI"
 {% else %}

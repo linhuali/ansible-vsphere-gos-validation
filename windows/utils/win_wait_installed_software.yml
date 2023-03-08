@@ -1,0 +1,44 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Retry to get installed software list in Windows guest OS until specified
+# software in the list.
+# Parameters:
+#   win_software_name: the software name to be waiting for.
+#   win_get_installed_software_retry: the retry times every 5 seconds, default
+#     value is 10.
+#
+- name: "Check required parameter"
+  ansible.builtin.assert:
+    that:
+      - win_software_name is defined
+      - win_software_name
+    fail_msg: "Parameter 'win_software_name' must be defined and set to a valid value: {{ win_software_name | default('') }}"
+
+- name: "Get installed software list"
+  ansible.windows.win_shell: "Get-WmiObject -class Win32_Product | foreach {$_.Name}"
+  delay: 5
+  retries: "{{ win_get_installed_software_retry | default(10) }}"
+  delegate_to: "{{ vm_guest_ip }}"
+  register: get_installed_software
+  until:
+    - get_installed_software.rc is defined
+    - get_installed_software.rc == 0
+    - get_installed_software.stdout_lines is defined
+    - "win_software_name in get_installed_software.stdout_lines"
+  ignore_errors: true
+
+- name: "Display the result of getting installed software"
+  ansible.builtin.debug: var=get_installed_software
+  when: enable_debug
+
+- name: "Check software '{{ win_software_name }}' installed in Windows"
+  ansible.builtin.assert:
+    that:
+      - get_installed_software.rc is defined
+      - get_installed_software.rc == 0
+      - get_installed_software.stdout_lines is defined
+      - "win_software_name in get_installed_software.stdout_lines"
+    fail_msg: >-
+      Software '{{ win_software_name }}' is not listed in the installed software list after '{{ win_get_installed_software_retry | default(10) | int * 5 }}' seconds.
+      Current installed softwares are '{{ get_installed_software.stdout_lines | default('') }}'

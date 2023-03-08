@@ -6,10 +6,12 @@
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: "Read variables from vars file"
+    - name: "Include vars file"
       ansible.builtin.include_vars:
         file: "{{ testing_vars_file | default('vars/test.yml') }}"
-
+    - name: "Include vars file for Desktop Hypervisor testing"
+      ansible.builtin.include_vars:
+        file: "{{ testing_vars_file_dh | default('vars/test_dh.yml') }}"
     - name: "Set facts of the current main playbook directory and cache directory"
       ansible.builtin.set_fact:
         main_playbook_path: "{{ playbook_dir }}"
@@ -21,7 +23,8 @@
           - "Current main playbook directory: {{ main_playbook_path }}"
           - "Local cache directory: {{ local_cache }}"
 
-    - include_tasks: common/create_directory.yml
+    - name: "Create local cache directory"
+      include_tasks: common/create_directory.yml
       vars:
         dir_path: "{{ local_cache }}"
         dir_mode: "0777"
