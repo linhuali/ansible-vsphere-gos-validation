@@ -29,6 +29,7 @@
         - not vm_not_revert_base | default(false)
         - base_snapshot_exists is defined
         - base_snapshot_exists | bool
+        - vsphere_host_name is defined
 
     - name: "Cleanup network environment"
       include_tasks: ../common/network_testbed_cleanup.yml
