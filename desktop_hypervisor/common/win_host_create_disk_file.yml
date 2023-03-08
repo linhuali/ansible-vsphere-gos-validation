@@ -1,0 +1,70 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Create new VM disk file on Windows host
+# Parameters:
+#   disk_file_path: the target new vmdk disk file path.
+#   disk_file_size: the disk file size, can be set to 'xxMB' or 'xxGB'.
+#   disk_controller: the disk controller type, default value is 'pvscsi'.
+#   disk_type_id: the ID number in below list of disk type. Default value is 1.
+#     0: single growable virtual disk
+#     1: growable virtual disk split into multiple files
+#     2: preallocated virtual disk
+#     3: preallocated virtual disk split into multiple files
+#     4: preallocated ESX-type virtual disk
+#     5: compressed disk optimized for streaming
+#     6: thin provisioned virtual disk - ESX 3.x and above
+#    
+- name: "Check required parameters"
+  ansible.builtin.assert:
+    that:
+      - disk_file_size is defined and disk_file_size is match("^\d+(MB|GB)$")
+      - disk_file_path is defined and disk_file_path
+      - disk_controller is defined and disk_controller
+    fail_msg: "Parameters 'disk_controller', 'disk_file_path', 'disk_file_size' should be defined and set to valid values."
+
+- name: "Check disk type value"
+  ansible.builtin.assert:
+    that:
+      - disk_type_id | default(1) | int in range(0, 7) | list
+    fail_msg: "Invalid value of parameter 'disk_type_id': {{ disk_type_id | default(1) }}, in 'vmware-vdiskmanager.exe' tool helper, valild values are 0-6."
+
+# Note: "{{ disk_file_path }}" need to be quoted or disk file will not be generated
+# and task not failed 
+- name: "Set fact of the command for creating disk file"
+  ansible.builtin.set_fact:
+    win_vdisk_manager_cmd: >-
+      Start-Process -FilePath "{{ dh_host_vdisk_manager_path }}" -ArgumentList '-c -s {{ disk_file_size }} -a {{ disk_controller }} -t {{ disk_type_id | default(1) | int }} "{{ disk_file_path }}"' -NoNewWindow
+
+- name: "Get vmware-vdiskmanager.exe file status"
+  include_tasks: ../../windows/utils/win_check_file_exist.yml
+  vars:
+    win_check_file_exist_file: "{{ dh_host_vdisk_manager_path }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+- name: "Make sure vmware-vdiskmanager.exe tool exists"
+  ansible.builtin.assert:
+    that:
+      - win_check_file_exist_result
+    fail_msg: "vmware-vdiskmanager.exe tool can not be found in this path '{{ dh_host_vdisk_manager_path }}' in Windows host."
+
+- name: "Create new VM disk file"
+  include_tasks: ../../windows/utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "{{ win_vdisk_manager_cmd }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+#    win_execute_cmd_become: true
+#    win_execute_cmd_become_user: "{{ host_machine_username }}"
+
+- name: "Get disk file status"
+  include_tasks: ../../windows/utils/win_check_file_exist.yml
+  vars:
+    win_check_file_exist_file: "{{ disk_file_path }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+#    win_check_file_become: true
+#    win_check_file_become_user: "{{ host_machine_username }}"
+
+- name: "Make sure disk file created"
+  ansible.builtin.assert:
+    that:
+      - win_check_file_exist_result
+    fail_msg: "Disk file '{{ disk_file_path }}' can not be found in Windows host."

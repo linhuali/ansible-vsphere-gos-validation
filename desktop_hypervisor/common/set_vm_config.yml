@@ -1,0 +1,77 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Prepare VNC server config
+- name: "Get VNC server port"
+  include_tasks: dh_host_get_vnc_port.yml
+- name: "Set fact of VNC server port"
+  ansible.builtin.set_fact:
+    dh_vm_vnc_port: "{{ vnc_server_port }}"
+
+- name: "Get the vmx file to local"
+  include_tasks: dh_get_file.yml
+  vars:
+    file_src_path: "{{ dh_vm_vmx_path }}"
+    file_dst_path: "{{ current_test_log_folder }}"
+
+- name: "Set fact of local vmx path"
+  ansible.builtin.set_fact:
+    dh_vm_vmx_file_local: "{{ file_local_path }}"
+
+- name: "Set facts of network connection type"
+  ansible.builtin.set_fact:
+    dh_vm_connection_type: "nat"
+
+- name: "Open Guest vm on {{ host_machine_hostname }}"
+  when: dh_vm_vmx_file_local is defined and dh_vm_vmx_file_local
+  block:
+    - name: "Update vmx file with msg.autAnswer: {{ dh_vm_vmx_path }}"
+      include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
+      vars:
+        file: "{{ dh_vm_vmx_file_local }}"
+        line_content: "msg.autoAnswer = \"TRUE\""
+        vm_guest_ip: localhost
+    - name: "Update vmx file with network connection type: {{ dh_vm_vmx_path }}"
+      include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
+      vars:
+        file: "{{ dh_vm_vmx_file_local }}"
+        line_content: "ethernet0.connectionType = \"{{ dh_vm_connection_type }}\""
+        reg_exp: "ethernet0.connectionType.*"
+        vm_guest_ip: localhost
+    - name: "Update vmx file with remotedisplay.vnc.enabled: {{ dh_vm_vmx_path }}"
+      include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
+      vars:
+        file: "{{ dh_vm_vmx_file_local }}"
+        line_content: "remotedisplay.vnc.enabled = \"TRUE\""
+        vm_guest_ip: localhost
+    - name: "Update vmx file with remotedisplay.vnc.port: {{ dh_vm_vmx_path }}"
+      include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
+      vars:
+        file: "{{ dh_vm_vmx_file_local }}"
+        line_content: "remotedisplay.vnc.port = \"{{ dh_vm_vnc_port }}\""
+        vm_guest_ip: localhost
+    - name: "Update vmx file with remotedisplay.vnc.password: {{ dh_vm_vmx_path }}"
+      when: dh_vm_vnc_password is defined and dh_vm_vnc_password
+      include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
+      vars:
+        file: "{{ dh_vm_vmx_file_local }}"
+        line_content: "remotedisplay.vnc.password = \"{{ dh_vm_vnc_password }}\""
+        vm_guest_ip: localhost
+
+- name: "Copy new VM vmx file from local to Windows host"
+  when: host_machine_type == "windows"
+  include_tasks: ../../windows/utils/win_copy_file_from_local.yml
+  vars:
+    src_path_local: "{{ dh_vm_vmx_file_local }}"
+    dest_path_remote: "{{ dh_vm_vmx_path }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Copy new VM vmx file from local to Linux host"
+  when: host_machine_type == "linux"
+  include_tasks: ../../common/transfer_file_remote.yml
+  vars:
+    transfer_file_remote_src: "{{ dh_vm_vmx_file_local }}"
+    transfer_file_remote_dest: "{{ dh_vm_vmx_path }}"
+    transfer_file_remote_server: "{{ host_machine_hostname }}"
+    transfer_file_remote_mode: "0777"
+    transfer_file_remote_force: "true"

@@ -1,0 +1,53 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Create new VM disk file on Linux host
+# Parameters:
+#   disk_file_path: the target new vmdk disk file path.
+#   disk_file_size: the disk file size, can be set to 'xxMB' or 'xxGB'.
+#   disk_controller: the disk controller type, default value is 'pvscsi'.
+#   disk_type_id: the ID number in below list of disk type. Default value is 1.
+#     0: single growable virtual disk
+#     1: growable virtual disk split into multiple files
+#     2: preallocated virtual disk
+#     3: preallocated virtual disk split into multiple files
+#     4: preallocated ESX-type virtual disk
+#     5: compressed disk optimized for streaming
+#     6: thin provisioned virtual disk - ESX 3.x and above
+#
+- name: "Check required parameters"
+  ansible.builtin.assert:
+    that:
+      - disk_file_size is defined and disk_file_size is match("^\d+(MB|GB)$")
+      - disk_file_path is defined and disk_file_path
+      - disk_controller is defined and disk_controller
+    fail_msg: "Parameters 'disk_controller', 'disk_file_path', 'disk_file_size' should be defined and set to valid values."
+
+- name: "Check disk type value"
+  ansible.builtin.assert:
+    that:
+      - disk_type_id | default(1) | int in range(0, 7) | list
+    fail_msg: "Invalid value of parameter 'disk_type_id': {{ disk_type_id | default(1) }}, in 'vmware-vdiskmanager.exe' tool helper, valild values are 0-6."
+
+# Note: "{{ disk_file_path }}" need to be quoted or disk file will not be generated
+# and task not failed
+- name: "Set fact of the command for creating disk file"
+  ansible.builtin.set_fact:
+    lin_vdisk_manager_cmd: >-
+      "{{ dh_host_vdisk_manager_path }}" -c -s {{ disk_file_size }} -a {{ disk_controller }} -t {{ disk_type_id | default(1) | int }} "{{ disk_file_path }}"
+
+- name: "Create new VM disk file"
+  ansible.builtin.shell: "{{ lin_vdisk_manager_cmd }}"
+  delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Get disk file status"
+  include_tasks: ../../linux/utils/get_file_stat_info.yml
+  vars:
+    guest_file_path: "{{ disk_file_path }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Make sure disk file created"
+  ansible.builtin.assert:
+    that:
+      - guest_file_exists
+    fail_msg: "Disk file '{{ disk_file_path }}' can not be found in Linux host."
