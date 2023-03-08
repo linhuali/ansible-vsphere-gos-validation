@@ -1,0 +1,196 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Initialize the facts of Workstation installation file"
+  ansible.builtin.set_fact:
+    ws_install_file_name: "{{ workstation_download_url | ansible.builtin.basename }}"
+
+- name: "Check Workstation installation file name"
+  ansible.builtin.assert:
+    that:
+      - ws_install_file_name
+      - ws_install_file_name.split('.')[-1] | lower == "bundle"
+    fail_msg: "Get Workstation installation file name '{{ ws_install_file_name }}' from configured URL '{{ workstation_download_url }}', file suffix is not 'bundle' for Linux host."
+
+- name: "Set fact of Workstation installation file download path and log path"
+  ansible.builtin.set_fact:
+    ws_install_file_path: "{{ dh_host_download_path }}/{{ ws_install_file_name }}"
+
+- name: "Set the facts of Workstation build and version"
+  ansible.builtin.set_fact:
+    expected_ws_build_version: "{{ ws_install_file_name | regex_search('([0-9]+\\.){2}[0-9]+|e\\.x\\.p') }}"
+    expected_ws_build_number: "{{ ws_install_file_name.split('-')[4] | regex_search('[0-9]+') }}"
+
+# ws_install_log_file: ""
+
+- name: "Check Workstation installation file exists or not"
+  when: dh_host_download_path
+  block:
+    - name: "Check the download path '{{ dh_host_download_path }}' exists or not"
+      include_tasks: ../../linux/utils/get_file_stat_info.yml
+      vars:
+        guest_file_path: "{{ ws_install_file_path }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+
+    - name: "Set fact of Workstation installation file exists or not"
+      ansible.builtin.set_fact:
+        ws_install_file_exists: "{{ guest_file_exists }}"
+
+- name: "Download Workstation installation file in Linux host if it doesn't exist"
+  when: not ws_install_file_exists
+  block:
+    - name: "Download Workstation installation file if it doesn't exist"
+      ansible.builtin.get_url:
+        url: "{{ workstation_download_url }}"
+        dest: "{{ ws_install_file_path }}"
+        mode: "0777"
+        checksum: "{{ workstation_package_checksum | default(omit) }}"
+        validate_certs: false
+        timeout: 1200
+      delegate_to: "{{ host_machine_hostname }}"
+      register: download_ws_result
+    - name: "Display the download result"
+      ansible.builtin.debug: var=download_ws_result
+    - name: "Check downloading Workstation installation file succeed"
+      ansible.builtin.assert:
+        that:
+          - download_ws_result.status_code is defined
+          - download_ws_result.status_code == 200
+          - download_ws_result.dest is defined
+          - download_ws_result.dest == ws_install_file_path
+        fail_msg: "Downloading Workstation installation file result status code '{{ download_ws_result.status_code | default('') }}' is not 200, or file dest '{{ download_ws_result.dest | default('') }}' is not expected '{{ ws_install_file_path }}'."
+
+- name: "Display downloaded Workstation installation file info"
+  ansible.builtin.debug:
+    msg:
+      - "Downloaded Workstation installation file name: {{ ws_install_file_name }}"
+      - "Downloaded Workstation installation file path: {{ ws_install_file_path }}"
+
+- name: "Initialize Workstation installation command"
+  when: workstation_install_path is undefined or not workstation_install_path
+  ansible.builtin.set_fact:
+    ws_install_cmd: >-
+      {{ ws_install_file_path }} --console --required --eulas-agreed
+
+#- name: "Add Workstation serial number to install command"
+#  when:
+#    - workstation_serial_number is defined
+#    - workstation_serial_number
+#    - workstation_install_path is undefined or not workstation_install_path
+#  ansible.builtin.set_fact:
+#    ws_install_cmd: >-
+#      {{ ws_install_cmd }} --set-setting vmware-workstation serialNumber "{{ workstation_serial_number }}"
+
+- name: "Set the facts of Workstation execution file"
+  ansible.builtin.set_fact:
+    ws_cmd_path: "/usr/bin/vmware"
+
+- name: "Check {{ ws_cmd_path }} exists or not"
+  include_tasks: ../../linux/utils/get_file_stat_info.yml
+  vars:
+    guest_file_path: "{{ ws_cmd_path }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Uninstall Workstation if it exists"
+  when: guest_file_exists
+  block:
+    - name: "Uninstall workstation if {{ ws_cmd_path }} exists"
+      ansible.builtin.shell: "sudo vmware-installer --required -u vmware-workstation"
+      delegate_to: "{{ host_machine_hostname }}"
+      register: ws_uninstall_result
+      failed_when:
+        - ws_uninstall_result.stderr is defined
+        - ws_uninstall_result.stderr
+    - name: "Display Workstation silent install result"
+      debug: var=ws_uninstall_result
+
+- name: "Create /etc/init.d if it doesn't exist"
+  ansible.builtin.shell: "if [ ! -d /etc/init.d ]; then mkdir -p /etc/init.d; fi"
+  register: create_dir_result
+  delegate_to: "{{ host_machine_hostname }}"
+  when: >
+    (guest_os_family is defined and guest_os_family == "Suse" and 
+    guest_os_ansible_distribution_major_ver is defined and 
+    guest_os_ansible_distribution_major_ver | int >=16) or
+    (guestinfo_guest_id is defined and guestinfo_guest_id == "sles16_64Guest")
+
+- name: "Install Workstation on {{ host_machine_hostname }}"
+  block:
+    - name: "Execute Workstation silent install"
+      ansible.builtin.shell: "sudo sh {{ ws_install_cmd }} 2>&1 | tee -a /tmp/vmware-installer.log"
+      delegate_to: "{{ host_machine_hostname }}"
+      register: ws_install_result
+
+    - name: "Display Workstation silent install result"
+      debug: var=ws_install_result
+
+    - name: "Build VMware Modules"
+      ansible.builtin.shell: "vmware-modconfig --console --install-all 2>&1 | tee -a /tmp/vmware-modconfig.log"
+      delegate_to: "{{ host_machine_hostname }}"
+      register: ws_module_build_result
+      failed_when: >
+        (ws_module_build_result.stderr is defined and
+        ws_module_build_result.stderr_lines | length > 0 and
+        ('error' in (ws_module_build_result.stderr | lower))) or
+        (ws_module_build_result.stdout is defined and
+        (('error' in (ws_module_build_result.stdout | lower)) or
+        ('unable to install all modules' in (ws_module_build_result.stdout | lower))))
+
+    #- name: "Reboot Linux host"
+    #  ansible.builtin.reboot:
+    #    reboot_timeout: 300
+    #  delegate_to: "{{ host_machine_hostname }}"
+    #  register: host_reboot_result
+  always:
+    - name: "Get the vmware-installer log to local"
+      include_tasks: ../common/dh_get_file.yml
+      vars:
+        file_src_path: "/tmp/vmware-installer.log"
+        file_dst_path: "{{ current_test_log_folder }}"
+    - name: "Get the vmware-modconfig log to local"
+      include_tasks: ../common/dh_get_file.yml
+      vars:
+        file_src_path: "/tmp/vmware-modconfig.log"
+        file_dst_path: "{{ current_test_log_folder }}"
+    - name: "Check the latest log under /tmp/vmware-root"
+      ansible.builtin.shell: "ls -t /tmp/vmware-root/vmware-[0-9]*.log 2>/dev/null | head -n 1"
+      delegate_to: "{{ host_machine_hostname }}"
+      register: check_ws_log_result
+    - name: "Get the vmware-modconfig log to local"
+      when:
+        - check_ws_log_result.stdout is defined
+        - check_ws_log_result.stdout
+      block:
+        - name: "Update the vmware-modconfig log"
+          ansible.builtin.shell: "sed -i 's/^.*] //' {{ check_ws_log_result.stdout }}"
+          delegate_to: "{{ host_machine_hostname }}"
+          register: update_ws_log_result
+        - name: "Copy the vmware-modconfig log to local"
+          include_tasks: ../common/dh_get_file.yml
+          vars:
+            file_src_path: "{{ check_ws_log_result.stdout }}"
+            file_dst_path: "{{ current_test_log_folder }}"
+
+- name: "Get Workstation build and version"
+  when:
+    - ws_cmd_path is defined
+    - ws_cmd_path
+  block:
+    - name: "Get Workstation daemon version"
+      ansible.builtin.command: "{{ ws_cmd_path }} -v"
+      register: ws_version
+      delegate_to: "{{ host_machine_hostname }}"
+
+    - name: "Set Workstation info from {{ ws_cmd_path }}"
+      ansible.builtin.set_fact:
+        ws_info_from_cmd: "{{ ws_version.stdout }}"
+        ws_build_version: "{{ ws_version.stdout.split(' ')[2] | regex_search('([0-9]+\\.){2}[0-9]+|e\\.x\\.p') }}"
+        ws_build_number: "{{ ws_version.stdout.split()[-1] | regex_search('[0-9]+') }}"
+
+- name: "Set fact of Desktop Hypervisor is installed"
+  when:
+    - ws_build_version == expected_ws_build_version
+    - ws_build_number == expected_ws_build_number
+  ansible.builtin.set_fact:
+    dh_host_installed: true
+    dh_host_installed_path: "{{ ws_cmd_path }}"
