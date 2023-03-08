@@ -1,0 +1,85 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Prepare OS install ISO file
+- name: "Initialize guest VM CDROM not use physical drive on host"
+  ansible.builtin.set_fact:
+    dh_vm_cdrom_use_physical: false
+
+- name: "Set ISO download URL fact"
+  ansible.builtin.set_fact:
+    dh_guest_iso_file_name: "{{ dh_guest_iso_path | ansible.builtin.basename }}"
+
+- name: "Set fact of local ISO file path"
+  ansible.builtin.set_fact:
+    dh_guest_iso_local_path: "{{ local_cache }}/{{ dh_guest_iso_file_name }}"
+
+# iso_http_server_path is configured
+- name: "Download ISO file to Host/Local"
+  when: iso_http_server_path is defined and iso_http_server_path
+  block:
+    - name: "Set ISO download URL fact"
+      ansible.builtin.set_fact:
+        dh_guest_iso_full_url: "{{ iso_http_server_path }}{{ dh_guest_iso_path }}"
+    - name: "Display ISO file info"
+      ansible.builtin.debug:
+        msg:
+          - "ISO URL: {{ dh_guest_iso_full_url }}"
+          - "ISO file name: {{ dh_guest_iso_file_name }}"
+    - name: "Set fact of ISO file path"
+      ansible.builtin.set_fact:
+        dh_guest_iso_host_path: "{{ dh_host_download_path }}/{{ dh_guest_iso_file_name }}"
+    - name: "Check guest OS image file status in Linux host"
+      include_tasks: ../../../linux/utils/get_file_stat_info.yml
+      vars:
+        guest_file_path: "{{ dh_guest_iso_host_path }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "Download ISO file to Host when it doesn't exist"
+      when: not guest_file_exists
+      block:
+        - name: "Download ISO file to Host downloads folder"
+          ansible.builtin.get_url:
+            url: "{{ dh_guest_iso_full_url }}"
+            dest: "{{ dh_guest_iso_host_path }}"
+            mode: "0777"
+            validate_certs: false
+          delegate_to: "{{ host_machine_hostname }}"
+          register: download_iso_result
+        - name: "Check downloading ISO file succeed"
+          ansible.builtin.assert:
+            that:
+              - download_iso_result.status_code is defined
+              - download_iso_result.status_code == 200
+              - download_iso_result.dest is defined
+              - download_iso_result.dest == dh_guest_iso_host_path
+            fail_msg: "Downloading ISO file result status code '{{ download_iso_result.status_code | default('') }}' is not 200, or file dest '{{ download_iso_result.dest | default('') }}' is not expected '{{ dh_guest_iso_host_path }}'."
+    - name: "Check guest OS image file status in local"
+      include_tasks: ../../../linux/utils/get_file_stat_info.yml
+      vars:
+        guest_file_path: "{{ dh_guest_iso_local_path }}"
+        vm_guest_ip: localhost
+    - name: "Download ISO file to local folder"
+      when: not guest_file_exists
+      ansible.builtin.get_url:
+        url: "{{ dh_guest_iso_full_url }}"
+        dest: "{{ dh_guest_iso_local_path }}"
+        mode: "0777"
+        validate_certs: false
+    - name: "Set fact of ISO file path"
+      ansible.builtin.set_fact:
+        dh_guest_iso_path: "{{ dh_guest_iso_host_path }}"
+
+- name: "Check guest OS image file status"
+  when: not dh_vm_cdrom_use_physical
+  block:
+    - name: "Get guest OS image file status in Linux host"
+      include_tasks: ../../../linux/utils/get_file_stat_info.yml
+      vars:
+        guest_file_path: "{{ dh_guest_iso_path }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+
+    - name: "Make sure guest OS image file exists"
+      ansible.builtin.assert:
+        that:
+          - guest_file_exists
+        fail_msg: "Guest OS image file path '{{ dh_guest_iso_path }}' does not exist."
