@@ -1,0 +1,36 @@
+# Copyright 2021-2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Check if base snapshot exists when parameter is undefined
+- name: "Check if base snapshot exists"
+  when: base_snapshot_exists is undefined or not base_snapshot_exists
+  block:
+    - name: "Check if snapshot {{ base_snapshot_name }} exists"
+      when: >
+        (dh_new_vm is undefined) or
+        (not dh_new_vm | bool)
+      include_tasks: dh_vm_check_snapshot_exist.yml
+      vars:
+        snapshot_name: "{{ base_snapshot_name }}"
+
+    - name: "Set fact of base snapshot existence"
+      ansible.builtin.set_fact:
+        base_snapshot_exists: "{{ snapshot_exist | default(false) }}"
+
+    - name: "Take a base snapshot if it does not exist"
+      when: not (base_snapshot_exists | bool)
+      block:
+        - name: "Power off VM"
+          include_tasks: dh_host_power_vm.yml
+          vars:
+            vm_power_option: "stop"
+          when: dh_vm_exists
+        - name: "Take a base snapshot if it does not exist"
+          include_tasks: dh_vm_create_base_snapshot.yml
+
+- name: "Revert to snapshot {{ base_snapshot_name }}"
+  when:
+    - base_snapshot_exists | bool
+  include_tasks: dh_vm_revert_snapshot.yml
+  vars:
+    snapshot_name: "{{ base_snapshot_name }}"
