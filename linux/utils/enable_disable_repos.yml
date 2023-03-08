@@ -61,7 +61,7 @@
     - name: "Change 'http' to 'https' and add trailing slash in the repo URL"
       ansible.builtin.replace:
         path: "{{ item.path }}"
-        regexp: '^baseurl=http://(.*[^/])$'
+        regexp: '^baseurl=http://(.*[^/\s])\s*$'
         replace: 'baseurl=https://\1/'
       loop: "{{ found_repo_files.files | default([]) }}"
       when: found_repo_files.matched > 0
