@@ -1,0 +1,38 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get available TCP port from 5901 to 6001 can be used as VNC server port in Windows host.
+# Please refer to VMware doc:
+# https://docs.vmware.com/en/VMware-Workstation-Pro/17/com.vmware.ws.using.doc/
+# GUID-7172F398-D1DA-4BF2-86F8-BF1C9C2EBFA3.html
+#   Return:
+#     vnc_server_port: available port number in range 5901-6001.
+#
+- name: "Initialize VNC server port"
+  ansible.builtin.set_fact:
+    vnc_server_port: 'NA'
+    get_unused_port: ''
+
+- name: "Get unused TCP port for VNC server in range 5901-6001"
+  when: not get_unused_port
+  block:
+    - name: "Check port open status"
+      include_tasks: dh_host_test_port.yml
+      loop: "{{ range(5901, 6002) | list }}"
+      loop_control:
+        loop_var: dh_host_port
+
+- name: "Set fact of VNC server port to be used"
+  when: get_unused_port
+  ansible.builtin.set_fact:
+    vnc_server_port: "{{ get_unused_port }}"
+
+- name: "Display the VNC server port"
+  ansible.builtin.debug: var=vnc_server_port
+
+- name: "Check get valid VNC server port"
+  ansible.builtin.assert:
+    that:
+      - vnc_server_port != 'NA'
+      - vnc_server_port | int in range(5901, 6002) | list
+    fail_msg: "Can not get available port in range 5901 to 6001 as VNC server port: '{{ vnc_server_port }}'"
