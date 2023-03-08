@@ -36,3 +36,6 @@ jobs:
             windows/**/*.yml
             linux/vhba_hot_add_remove/*.sh
             linux/utils/**/*.sh
+            desktop_hypervisor/**/*.yml
+            desktop_hypervisor/linux/*.yml
+            desktop_hypervisor/windows/*.yml
