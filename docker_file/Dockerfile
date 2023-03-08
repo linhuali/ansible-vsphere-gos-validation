@@ -10,7 +10,7 @@ WORKDIR /root/ansible-vsphere-gos-validation
 RUN tdnf makecache && \
     tdnf install -y zip vim wget python3 python3-pip git \
     sshpass gawk nfs-utils iana-etc python3-lxml python3-setuptools \
-    python3-wheel  python3-jmespath python3-netaddr
+    python3-wheel  python3-jmespath python3-netaddr vncdotool
 
 # Install required python libraries
 RUN pip3 install pycdlib pywinrm pyvmomi pypsrp passlib

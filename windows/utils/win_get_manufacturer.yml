@@ -1,0 +1,27 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get machine manufacturer in Windows guest OS. vSphere virtual machine
+# manufacturer is "VMware, Inc".
+#
+- name: "Initialize fact of manufacturer info"
+  ansible.builtin.set_fact:
+    win_manufacturer: ''
+
+- name: "Get manufacturer info"
+  include_tasks: win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "(Get-CimInstance -ClassName Win32_ComputerSystem).Manufacturer"
+
+- name: "Set fact of Windows host manufacturer"
+  ansible.builtin.set_fact:
+    win_manufacturer: "{{ win_powershell_cmd_output.stdout_lines[0] }}"
+  when:
+    - win_powershell_cmd_output.rc is defined
+    - win_powershell_cmd_output.rc == 0
+    - win_powershell_cmd_output.stdout_lines is defined
+    - win_powershell_cmd_output.stdout_lines | length > 0
+
+- name: "Display the result"
+  ansible.builtin.debug:
+    msg: "Windows machine manufacturer: {{ win_manufacturer }}"
