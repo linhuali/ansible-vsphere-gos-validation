@@ -31,9 +31,37 @@
 - name: "Get configured ISO file list"
   include_tasks: ../../common/get_iso_file_list.yml
 
+- name: "Prepare Autounattend install ISO file"
+  block:
+    - name: "Set fact of the timestamp suffix of ISO file name"
+      ansible.builtin.set_fact:
+        iso_timestamp: "{{ lookup('pipe','date +%s') }}"
+    - name: "Set fact of unattended install ISO file name"
+      ansible.builtin.set_fact:
+        unattend_install_iso: "{{ guest_id }}-{{ firmware }}-{{ boot_disk_controller }}-{{ iso_timestamp }}.iso"
+    - name: "Set fact of Autounattend install ISO file path on ESXi host"
+      ansible.builtin.set_fact:
+        transferred_unattend_iso: "[{{ datastore }}] {{ unattend_install_iso }}"
+    - name: "Generate Autounattend install ISO file"
+      include_tasks: create_unattend_install_iso.yml
+    - name: "Copy generated Autounattend install ISO file to ESXi host"
+      include_tasks: ../../common/esxi_upload_datastore_file.yml
+      vars:
+        src_file_path: "{{ local_cache }}/{{ unattend_install_iso }}"
+        dest_file_path: "{{ unattend_install_iso }}"
+        upload_file_timeout: 600
+    - name: "Display the Autounattend install ISO file path on ESXi host"
+      ansible.builtin.debug: var=transferred_unattend_iso
+    - name: "Append generated Autounattend ISO file to the list"
+      ansible.builtin.set_fact:
+        os_installation_iso_list: "{{ os_installation_iso_list + [transferred_unattend_iso] }}"
+        os_install_iso_list_len: "{{ os_install_iso_list_len | int + 1 }}"
 - name: "Generate unattend install ISO file"
   include_tasks: create_unattend_install_iso.yml
   when: unattend_install_conf is defined and unattend_install_conf
+- name: "Display warning message"
+  ansible.builtin.debug:
+    msg: "Parameter 'unattend_install_conf' is not defined or set to a file path, so will not generate Autounattend ISO file for guest OS automatic installation."
 - name: "Not Generate unattend install ISO file"
   ansible.builtin.debug:
     msg: "[WARNING] Parameter 'unattend_install_conf' is not configured in vars/test.yml."
@@ -166,5 +194,5 @@
           - "'2' in win_vbs_running_service"
         fail_msg: "VBS is not running '{{ win_vbs_status_guest }}', or HVCI is not running '{{ win_vbs_running_service }}'."
 
-- name: "Detach ISO image from VM CDROMs"
+- name: "Detach ISO image from VM CD-ROMs"
   include_tasks: detach_cdrom_iso.yml
