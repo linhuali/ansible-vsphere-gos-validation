@@ -1,0 +1,55 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Install Windows feature 'NFS-Client' on Windows client or Windows Server.
+# Parameters:
+#   win_target_type: 'client' or 'server'.
+#
+- name: "Check required parameter"
+  ansible.builtin.assert:
+    that:
+      - win_target_type is defined
+      - win_target_type in ['client', 'server']
+    fail_msg: "Parameter 'win_target_type' is required to be set to 'client' or 'server' when using this task."
+
+- name: "Set fact of commands for NFS-Client feature on Windows client"
+  ansible.builtin.set_fact:
+    win_enable_nfs_cmd: "Enable-WindowsOptionalFeature -FeatureName ServicesForNFS-ClientOnly, ClientForNFS-Infrastructure -Online -NoRestart"
+    win_check_nfs_cmd: "(Get-WindowsOptionalFeature -Online -FeatureName ClientForNFS-Infrastructure).State"
+  when: win_target_type == 'client'
+
+- name: "Set fact of commands for enabling NFS-Client feature on Windows server"
+  ansible.builtin.set_fact:
+    win_enable_nfs_cmd: "Install-WindowsFeature NFS-Client"
+    win_check_nfs_cmd: "(Get-WindowsFeature NFS-Client).InstallState"
+  when: win_target_type == 'server'
+
+- name: "Enable NFS-Client feature"
+  include_tasks: win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "{{ win_enable_nfs_cmd }}"
+
+- name: "Pause 10 seconds after enabling NFS-Client feature"
+  ansible.builtin.pause:
+    seconds: 10
+
+# Need to restart guest OS for Windows client
+- name: "Restart guest OS after enable NFS client features on Windows client"
+  ansible.windows.win_reboot:
+    reboot_timeout: 600
+  register: restart_guest_os
+  delegate_to: "{{ vm_guest_ip }}"
+  when: win_target_type == 'client'
+
+- name: "Get NFS-Client feature install state"
+  include_tasks: win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "{{ win_check_nfs_cmd }}"
+
+- name: "Check NFS-Client feature installed in guest OS"
+  ansible.builtin.assert:
+    that:
+      - win_powershell_cmd_output.stdout_lines is defined
+      - win_powershell_cmd_output.stdout_lines | length == 1
+      - win_powershell_cmd_output.stdout_lines[0].strip() in ['Installed', 'Enabled']
+    fail_msg: "NFS-Client feature state in guest OS is not 'Installed' or 'Enabled': '{{ win_powershell_cmd_output.stdout_lines | default('') }}'"

@@ -1,0 +1,164 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Set fact of the timestamp"
+  ansible.builtin.set_fact:
+    iso_timestamp: "{{ lookup('pipe','date +%s') }}"
+
+- name: "Set facts of VM files paths"
+  ansible.builtin.set_fact:
+    dh_vm_boot_disk_file: "{{ dh_vm_new_name }}.vmdk"
+    dh_vm_boot_disk_file_path: "{{ dh_vm_path }}\\{{ dh_vm_new_name }}\\{{ dh_vm_new_name }}.vmdk"
+    dh_vm_vmx_file_local: "{{ current_test_log_folder }}/{{ dh_vm_new_name }}.vmx"
+    dh_vm_tools_path: "{{ workstation_install_path }}\\windows.iso"
+
+- name: "Prepare guest OS guest ID in vmx file"
+  include_tasks: ../../common/handle_dh_vm_guest_id.yml
+
+- name: "Set the tools iso for Windows 32bit guest"
+  when: dh_vm_guest_id is not match("^[a-zA-Z0-9]+-64$")
+  block:
+    - name: "Check the windows-x86.iso file in Windows host"
+      include_tasks: ../../../windows/utils/win_check_file_exist.yml
+      vars:
+        win_check_file_exist_file: "{{ workstation_install_path }}\\windows-x86.iso"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+      register: dh_vm_guest_tools
+    - name: "Display the check result"
+      ansible.builtin.debug: var=dh_vm_guest_tools
+    - name: "Download windows-x86.iso from buildweb"
+      when: not win_check_file_exist_result
+      block:
+        - name: "Download 12.4.5 windows-x86.iso"
+          ansible.windows.win_get_url:
+            url: "https://packages.vmware.com/tools/releases/12.4.5/windows/VMware-tools-windows-12.4.5-23787635.iso"
+            dest: "{{ dh_host_installed_path }}\\windows-x86.iso"
+            checksum: "{{ workstation_package_checksum | default(omit) }}"
+            validate_certs: false
+          delegate_to: "{{ host_machine_hostname }}"
+          register: download_tools_result
+        - name: "Display the download result"
+          ansible.builtin.debug: var=download_tools_result
+    - name: "Set windows-x86.iso for Windows 32bit guest"
+      ansible.builtin.set_fact:
+        dh_vm_tools_path: "{{ workstation_install_path }}\\windows-x86.iso"
+      when: >
+        win_check_file_exist_result or 
+        (download_tools_result.status_code is defined and download_tools_result.status_code | int == 200)
+
+- name: "Prepare OS install ISO file"
+  include_tasks: set_gos_iso_path.yml 
+
+# Prepare VM folder
+- name: "Create new folder for VM in Windows host"
+  include_tasks: ../../../windows/utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: >-
+      if ($(Test-Path "{{ dh_vm_path }}\\{{ dh_vm_new_name }}")) {exit} else {New-Item -ItemType 'directory' -Path "{{ dh_vm_path }}\\{{ dh_vm_new_name }}"}
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+# Prepare Autounattend ISO file
+- name: "Set fact of Autounattend ISO file name"
+  ansible.builtin.set_fact:
+    unattend_install_iso: "{{ dh_vm_guest_id }}-{{ dh_vm_firmware }}-{{ dh_vm_boot_disk_controller }}-{{ iso_timestamp }}.iso"
+- name: "Set fact of target Autounattend ISO file path"
+  ansible.builtin.set_fact:
+    dh_vm_unattend_iso_path: "{{ dh_vm_path }}\\{{ dh_vm_new_name }}\\{{ unattend_install_iso }}"
+- name: "Create Autounattend install ISO file"
+  include_tasks: ../../../windows/deploy_vm/create_unattend_install_iso.yml
+  vars:
+    guest_id: "{{ dh_vm_guest_id }}"
+    firmware: "{{ dh_vm_firmware }}"
+    boot_disk_controller: "{{ dh_vm_boot_disk_controller }}"
+    current_test_timestamp: "{{ iso_timestamp }}"
+    windows_has_inbox_driver: "{{ dh_guest_windows_has_inbox_driver }}"
+    unattend_install_conf: "{{ dh_guest_unattend_install_conf }}"
+    vm_username: "{{ dh_vm_username }}"
+    vm_password: "{{ dh_vm_password }}"
+    windows_product_key: "{{ dh_guest_windows_product_key }}"
+    os_install_iso_list_len: 1
+- name: "Copy Autounattend install ISO file to Windows host"
+  include_tasks: ../../../windows/utils/win_copy_file_from_local.yml
+  vars:
+    src_path_local: "{{ local_cache }}/{{ unattend_install_iso }}"
+    dest_path_remote: "{{ dh_vm_unattend_iso_path }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+# Prepare VNC server config
+- name: "Set VNC server port when it's not configured"
+  #when: dh_vm_vnc_port is undefined
+  block:
+    - name: "Get VNC server port"
+      include_tasks: ../../common/dh_host_get_vnc_port.yml
+    - name: "Set fact of VNC server port"
+      ansible.builtin.set_fact:
+        dh_vm_vnc_port: "{{ vnc_server_port }}"
+
+# Prepare vmdk file
+- name: "Create VM disk file"
+  include_tasks: ../../common/win_host_create_disk_file.yml
+  vars:
+    disk_file_size: "{{ dh_vm_boot_disk_size_gb }}GB"
+    disk_controller: "{{ dh_vm_boot_disk_controller }}"
+    disk_file_path: "{{ dh_vm_boot_disk_file_path }}"
+
+# Prepare vmx file
+- name: "Generate new VM vmx file according to the configuration"
+  ansible.builtin.template:
+    src: windows_vmx.template
+    dest: "{{ dh_vm_vmx_file_local }}"
+    mode: "0644"
+  register: gen_vm_vmx_file_result
+- name: "Display the result of generating VM vmx file"
+  ansible.builtin.debug: var=gen_vm_vmx_file_result
+
+- name: "Add VM disk and CDROM config to vmx file"
+  include_tasks: ../../common/set_disk_cdrom_in_vmx.yml
+
+- name: "Copy new VM vmx file from local to Windows host"
+  include_tasks: ../../../windows/utils/win_copy_file_from_local.yml
+  vars:
+    src_path_local: "{{ dh_vm_vmx_file_local }}"
+    dest_path_remote: "{{ dh_vm_vmx_path }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Power on VM to do Windows automatic install"
+  include_tasks: ../../common/dh_host_power_vm.yml
+  vars:
+    vm_power_option: "start"
+
+- name: "Pause 30 seconds before taking VM screenshot"
+  ansible.builtin.pause:
+    seconds: 30
+
+- name: "Take a VM screenshot after start"
+  include_tasks: ../../common/dh_vm_take_screenshot.yml
+  vars:
+    screenshot_name: "start"
+
+- name: "Send keystrokes when VM firmware is EFI"
+  when: dh_vm_firmware | lower == 'efi'
+  block:
+    - name: "Send down, down, enter, enter keys"
+      ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} key down pause 3 key down pause 3 key enter pause 3 key enter"
+      register: vncdo_send_keys
+    - name: "Display the vncdotool sends keys result"
+      ansible.builtin.debug: var=vncdo_send_keys
+    - name: "Take a VM screenshot after send keys"
+      include_tasks: ../../common/dh_vm_take_screenshot.yml
+      vars:
+        screenshot_name: "send_keys"
+
+- name: "Get Guest VM IP"
+  include_tasks: ../../common/dh_host_get_guest_ip.yml
+
+- name: "Take a VM screenshot after complete"
+  include_tasks: ../../common/dh_vm_take_screenshot.yml
+  vars:
+    screenshot_name: "complete"
+
+- name: "Get VMTools version"
+  include_tasks: ../../common/dh_get_guest_vmtools.yml
+
+- name: "Get VM guest info including detailed data"
+  include_tasks: ../../common/dh_get_guest_info.yml

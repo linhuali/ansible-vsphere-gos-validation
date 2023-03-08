@@ -1,0 +1,47 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# When parameter dh_vm_guest_id is configured in vim format, e.g., windows9_64Guest,
+# will convert it to the format of 'guestOS' property value in vmx file, e.g., windows9-64.
+#
+- name: "Initialize the fact of configured guest ID format"
+  ansible.builtin.set_fact:
+    in_vim_format: false
+
+- name: "Set fact of configured guest ID in vim format"
+  when: dh_vm_guest_id is match("^[a-zA-Z0-9_]+Guest$")
+  ansible.builtin.set_fact:
+    in_vim_format: true
+
+- name: "Handle Other 64-Bit situation"
+  when: dh_vm_guest_id == "otherGuest64"
+  ansible.builtin.set_fact:
+    dh_vm_guest_id: "other-64"
+
+- name: "Convert configured vim format guest ID"
+  when: in_vim_format
+  block:
+    - name: "Convert 'Server' to 'srv' in guest ID firstly"
+      when: "'Server' in dh_vm_guest_id"
+      ansible.builtin.set_fact:
+        dh_vm_guest_id: "{{ dh_vm_guest_id | replace('Server', 'srv') }}"
+    - name: "Handle contain '_64Guest' situation"
+      when: dh_vm_guest_id is match("^[a-zA-Z0-9]+_64Guest$")
+      ansible.builtin.set_fact:
+        dh_vm_guest_id: "{{ dh_vm_guest_id.split('Guest')[0] | replace('_', '-') | replace('Linux', 'linux') }}"
+    - name: "Handle contain '64Guest' situation"
+      when: dh_vm_guest_id is match("^[a-zA-Z0-9]+64Guest$")
+      ansible.builtin.set_fact:
+        dh_vm_guest_id: "{{ dh_vm_guest_id.split('Guest')[0] | replace('64', '-64') | replace('Linux', 'linux') }}"
+    - name: "Handle contain 'Guest' situation"
+      when: dh_vm_guest_id is match("^[a-zA-Z0-9]+(?!64)Guest$")
+      ansible.builtin.set_fact:
+        dh_vm_guest_id: "{{ dh_vm_guest_id.split('Guest')[0] | replace('Linux', 'linux') }}"
+    - name: "Handle Photon OS situation"
+      when: "'photon' in dh_vm_guest_id | lower"
+      ansible.builtin.set_fact:
+        dh_vm_guest_id: "vmware-photon-64"
+
+- name: "Display the guest ID"
+  ansible.builtin.debug:
+    msg: "Configured or converted guest ID is: {{ dh_vm_guest_id }}"

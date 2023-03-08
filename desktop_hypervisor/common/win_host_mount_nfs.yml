@@ -1,0 +1,73 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Mount NFS datastore in Windows host.
+#
+# Guest access in SMB2 and SMB3 disabled by default in Windows,
+# refer to this page:
+# https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/guest-access-in-smb2-is-disabled-by-default
+# So if parameters 'iso_nfs_server_username' and 'iso_nfs_server_password' are not set, for testing purpose only, will
+# enable insecure guest logons in Windows host machine when configured NFS server accepts guest credential.
+#
+- name: "Enable insecure guest logons in Windows host"
+  when: >
+    (iso_nfs_server_username is undefined or not iso_nfs_server_username) or
+    (iso_nfs_server_password is undefined or not iso_nfs_server_password)
+  include_tasks: ../../windows/utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "reg add 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters' /v 'AllowInsecureGuestAuth' /t REG_DWORD /d 1 /f"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Enable NFS client in Windows host"
+  include_tasks: ../../windows/utils/win_install_nfs_client.yml
+  vars:
+    win_target_type: "{{ guest_os_product_type | lower }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+# Change using this powershell command:
+# New-PSDrive -Name X -Root "{{ iso_nfs_server_path }}" -Persist -PSProvider FileSystem -Scope Global
+# to below command 
+- name: "Set fact of the command to mount NFS datastore"
+  ansible.builtin.set_fact:
+    win_host_mount_cmd: >-
+      mount "{{ iso_nfs_server_path }}" X:
+
+# Change using this powershell command:
+# $user = "{{ iso_nfs_server_username }}";
+# $pword = ConvertTo-SecureString -String "{{ iso_nfs_server_password }}" -AsPlainText -Force;
+# $cred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $user, $pword;
+# New-PSDrive -Name X -Root "{{ iso_nfs_server_path }}" -Persist -PSProvider FileSystem -Scope Global -Credential $cred
+# to below command
+- name: "Set fact of the command to mount NFS datastore with credentials"
+  when:
+    - iso_nfs_server_username is defined and iso_nfs_server_username
+    - iso_nfs_server_password is defined and iso_nfs_server_password
+  ansible.builtin.set_fact:
+    win_host_mount_cmd: >-
+      mount "{{ iso_nfs_server_path }}" X: -u:{{ iso_nfs_server_username }} -p:{{ iso_nfs_server_password }}
+
+- name: "Mount NFS datastore in Windows host"
+  ansible.windows.win_command: "{{ win_host_mount_cmd }}"
+  delegate_to: "{{ host_machine_hostname }}"
+  become: true
+  become_method: runas
+  become_user: "{{ host_machine_username }}"
+
+- name: "Check mounted drive X: exists"
+  include_tasks: ../../windows/utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "Test-Path X:"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+    win_execute_cmd_ignore_error: true
+    win_execute_cmd_become: true
+    win_execute_cmd_become_user: "{{ host_machine_username }}"
+
+- name: "Check mounted drive X:"
+  ansible.builtin.assert:
+    that:
+      - win_powershell_cmd_output.rc is defined
+      - win_powershell_cmd_output.rc == 0
+      - win_powershell_cmd_output.stdout_lines is defined
+      - win_powershell_cmd_output.stdout_lines | length > 0
+      - win_powershell_cmd_output.stdout_lines[0] == 'True'
+    fail_msg: "Check mounted drive X: existence failed after mounting NFS '{{ iso_nfs_server_path }}', please check it on host machine."

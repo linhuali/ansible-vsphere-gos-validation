@@ -1,0 +1,10 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# - import_playbook: ../../windows/deploy_vm/deploy_vm.yml
+- import_playbook: ../workstation/install_workstation.yml
+- import_playbook: dh_deploy_vm_from_ovf/dh_deploy_vm_from_ovf.yml
+- import_playbook: dh_deploy_vm/dh_deploy_vm.yml
+- import_playbook: dh_vmrun/check_browser_in_guest.yml
+- import_playbook: wintools_complete_install_verify/wintools_complete_install_verify.yml
+- import_playbook: ../workstation/uninstall_workstation.yml

@@ -1,0 +1,29 @@
+# Copyright 2021-2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Get VM snapshot status"
+  when: host_machine_type == "windows"
+  include_tasks: ../../windows/utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: >-
+      Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws listSnapshots "{{ dh_vm_vmx_path }}"' -NoNewWindow
+    vm_guest_ip: "{{ host_machine_hostname }}"
+  register: vm_snapshot_facts
+
+
+- name: "Get VM snapshot status"
+  when: host_machine_type == "linux"
+  ansible.builtin.shell: |
+    {{ dh_host_vmrun_path }} -T ws listSnapshots {{ dh_vm_vmx_path }}
+  delegate_to: "{{ host_machine_hostname }}"
+  become: true
+  become_user: "{{ dh_vm_username }}"
+  register: vm_snapshot_facts
+  failed_when:
+    - vm_snapshot_facts.stderr is defined
+    - vm_snapshot_facts.stderr | length != 0
+    - "'Error' in vm_snapshot_facts.stderr"
+
+- name: Display the VM snapshot facts
+  ansible.builtin.debug: var=vm_snapshot_facts
+  when: enable_debug is defined and enable_debug

@@ -1,0 +1,31 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Get the guestID"
+  when: dh_guest_id is undefined or not dh_guest_id
+  include_tasks: ../../common/dh_get_guestid.yml
+
+- name: "Initialize the file paths"
+  ansible.builtin.set_fact:
+    vmtools_log_path: "{{ dh_host_download_path }}/vmtools.txt"
+    vmtools_cmd_path: |-
+      {%- if dh_guest_id is match('.*free(bsd|BSD).*') -%}vmware-guestd
+      {%- elif dh_guest_id is match('.*debian.*') -%}open-vm-tools
+      {%- else  -%}vmtoolsd
+      {%- endif -%}
+
+- name: "Get vmtools info of guest"
+  ansible.builtin.shell: |
+    if [ -f "{{ vmtools_log_path }}" ]; then rm -rf "{{ vmtools_log_path }}"; fi
+    "{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} runScriptInGuest "{{ dh_vm_vmx_path }}" "" "if [ -f \"{{ vmtools_log_path }}\" ]; then rm -rf \"{{ vmtools_log_path }}\"; fi"
+    "{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} runScriptInGuest "{{ dh_vm_vmx_path }}" "" "{{ vmtools_cmd_path }} -v > \"{{ vmtools_log_path }}\""
+    "{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} CopyFileFromGuestToHost "{{ dh_vm_vmx_path }}" "{{ vmtools_log_path }}" "{{ vmtools_log_path }}"
+    cat "{{ vmtools_log_path }}"
+  register: vmtools_version_build
+  ignore_errors: true
+  become: true
+  become_user: "{{ dh_vm_username }}"
+  delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Print VMTools version and build"
+  ansible.builtin.debug: var=vmtools_version_build

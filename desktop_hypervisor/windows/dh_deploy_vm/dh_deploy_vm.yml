@@ -1,0 +1,84 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Description:
+#   This test case is used for deploying new Windows VM and installing
+# guest OS in VM automatically on VMware Workstation using 
+# Autounattend.xml file when 'dh_vm_deploy_method' is set to 'iso'.
+#
+- name: dh_deploy_vm
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: "Test case block"
+      block:
+        - name: "Reset the dh_vm_deploy_method per dh_guest_iso_path"
+          when:
+            - dh_guest_iso_path is defined
+            - dh_guest_iso_path | lower is match('.*.(iso|ova|ovf)')
+          ansible.builtin.set_fact:
+            dh_vm_deploy_method: "{{ dh_guest_iso_path.split('.')[-1] | lower }}"
+
+        - name: "Test setup"
+          include_tasks: ../../common/dh_test_setup.yml
+          vars:
+            create_dh_test_folder: true
+            require_dh_vm_exists: "{{ true if (dh_new_vm is undefined or not dh_new_vm | bool) else false }}"
+
+        - name: "Skip test case"
+          when:
+            - dh_new_vm is undefined or not dh_new_vm | bool
+            - dh_vm_exists or dh_vm_vmx_exists
+          include_tasks: ../../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Skip test case due to 'dh_new_vm' is set to '{{ dh_new_vm | default(false) }}' and got VM exists: '{{ dh_vm_exists }}'"
+            skip_reason: "Skipped"
+
+        - name: "Skip test case when no vdiskmanager"
+          when: dh_vm_deploy_method == "iso"
+          block:
+            - name: "Check vdiskmanager"
+              include_tasks: ../../common/check_vdiskmanager.yml
+            - name: "Skip test case"
+              include_tasks: ../../../common/skip_test_case.yml
+              vars:
+                skip_msg: "Test case {{ current_testcase_name }} is blocked due to dh_host_vdisk_manager_exists is '{{ dh_host_vdisk_manager_exists }}''"
+                skip_reason: "Blocked"
+              when:
+                - dh_host_vdisk_manager_exists is undefined or not dh_host_vdisk_manager_exists | bool
+
+        - name: "Make sure no VM with same name exists"
+          when: dh_new_vm is defined and dh_new_vm | bool
+          ansible.builtin.assert:
+            that:
+              - not dh_vm_exists
+              #- not dh_vm_vmx_exists
+            fail_msg: "VM with path '{{ dh_vm_vmx_path }}' exists, please set parameter 'dh_vm_new_name' or 'dh_vm_path' to other values."
+
+        - name: "Create new folder for VM in Windows host"
+          ansible.windows.win_shell: |
+            if ($(Test-Path "{{ dh_vm_new_path }}")) {
+              Remove-Item -Path "{{ dh_vm_new_path }}" -Recurse
+            }
+            New-Item -ItemType 'directory' -Path "{{ dh_vm_new_path }}"
+          delegate_to: "{{ host_machine_hostname }}"
+          become: "{{ win_execute_cmd_become | default(false) }}"
+          become_method: runas
+          become_user: "{{ win_execute_cmd_become_user | default('Administrator') }}"
+
+        - name: "Deploy VM from ISO"
+          when: (dh_vm_deploy_method is undefined) or (dh_vm_deploy_method == "iso")
+          include_tasks: deploy_vm_from_iso.yml
+
+        - name: "Deploy VM from an OVA/OVF template"
+          when: (dh_vm_deploy_method is defined) and (dh_vm_deploy_method == "ova" or dh_vm_deploy_method == "ovf")
+          include_tasks: deploy_vm_from_ova.yml
+      rescue:
+        - name: "Take a VM screenshot after failure"
+          include_tasks: ../../common/dh_vm_take_screenshot.yml
+          vars:
+            screenshot_name: "failure"
+        - name: "Test case failure"
+          include_tasks: ../../common/dh_test_rescue.yml
+          vars:
+            exit_testing_when_fail: true

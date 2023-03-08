@@ -1,0 +1,35 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get configured host machine manufacturer, if it's a virtual machine,
+# need to enable VM nested virtualization before running this test.
+#
+- name: "Initialize host machine is virtual machine"
+  ansible.builtin.set_fact:
+    dh_host_is_vm: false
+    dh_host_nest_virtual: false
+
+- name: "Check if host machine is virtual machine"
+  when: host_machine_type == "windows"
+  block:
+    - name: "Get Windows machine manufacturer"
+      include_tasks: ../../windows/utils/win_get_manufacturer.yml
+      vars:
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "Set fact of host machine is virtual machine info"
+      when: "'VMware' in win_manufacturer"
+      ansible.builtin.set_fact:
+        dh_host_is_vm: true
+
+- name: "Check if nested virtualization is enabled on VM"
+  when:
+    - host_machine_type == "windows"
+    - dh_host_is_vm
+  block:
+    - name: "Get Windows nested virtualization status"
+      include_tasks: ../../windows/utils/win_get_firmware_virtual.yml
+      vars:
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "Set fact of host VM nested virtualization status"
+      ansible.builtin.set_fact:
+        dh_host_nest_virtual: "{{ win_firmware_virtual_status }}"

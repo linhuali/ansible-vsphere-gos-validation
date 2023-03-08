@@ -1,0 +1,49 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get specified software installation path in Windows guest OS.
+# Parameters:
+#   win_software_name: the software name to be checked.
+#
+- name: "Check required parameter"
+  ansible.builtin.assert:
+    that:
+      - win_software_name is defined
+      - win_software_name
+    fail_msg: "Parameter 'win_software_name' must be defined and set to a valid value: {{ win_software_name | default('') }}"
+
+- name: "Initialize install path of software"
+  ansible.builtin.set_fact:
+    win_software_install_path: ''
+    software_package_name: ''
+
+- name: "Get installed software package name"
+  include_tasks: win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "(Get-WmiObject -class Win32_Product | where-object {$_.Name -eq '{{ win_software_name }}'}).PackageName"
+
+- name: "Set fact of software package name"
+  ansible.builtin.set_fact:
+    software_package_name: "{{ win_powershell_cmd_output.stdout_lines[0].split('.')[0] }}"
+  when:
+    - win_powershell_cmd_output.stdout_lines is defined
+    - win_powershell_cmd_output.stdout_lines | length == 1
+
+- name: "Get software installation path"
+  include_tasks: win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: >-
+      if ($install_loc=(Get-ItemProperty 'HKLM:\\software\\microsoft\\windows\\currentversion\\uninstall\\{{ software_package_name }}').InstallLocation) {$install_loc} else {(Get-ItemProperty 'HKLM:\\software\\microsoft\\windows\\currentversion\\uninstall\\{{ software_package_name }}').DisplayIcon}
+  when: software_package_name
+
+- name: "Set fact software installation path"
+  ansible.builtin.set_fact:
+    win_software_install_path: "{{ win_powershell_cmd_output.stdout_lines[0] | ansible.builtin.win_dirname }}"
+  when:
+    - software_package_name
+    - win_powershell_cmd_output.stdout_lines is defined
+    - win_powershell_cmd_output.stdout_lines | length == 1
+
+- name: "Display software installation path"
+  ansible.builtin.debug:
+    msg: "'{{ win_software_name }}' installation path in Windows: '{{ win_software_install_path }}'"

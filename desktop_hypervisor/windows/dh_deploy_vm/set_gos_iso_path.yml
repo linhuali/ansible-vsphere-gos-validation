@@ -1,0 +1,83 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Prepare OS install ISO file
+- name: "Initialize guest VM CDROM not use physical drive on host"
+  ansible.builtin.set_fact:
+    dh_vm_cdrom_use_physical: false
+
+# iso_http_server_path is configured
+- name: "Download ISO file to Host"
+  when: iso_http_server_path is defined and iso_http_server_path
+  block:
+    - name: "Set ISO download URL fact"
+      ansible.builtin.set_fact:
+        dh_guest_iso_full_url: "{{ iso_http_server_path }}{{ dh_guest_iso_path }}"
+        dh_guest_iso_file_name: "{{ dh_guest_iso_path | ansible.builtin.basename }}"
+    - name: "Display ISO file info"
+      ansible.builtin.debug:
+        msg:
+          - "ISO URL: {{ dh_guest_iso_full_url }}"
+          - "ISO file name: {{ dh_guest_iso_file_name }}"
+    - name: "win_get_url ISO file to Host downloads folder"
+      ansible.windows.win_get_url:
+        url: "{{ dh_guest_iso_full_url }}"
+        dest: "{{ dh_host_download_path }}{{ dh_guest_iso_file_name }}"
+        validate_certs: false
+      delegate_to: "{{ host_machine_hostname }}"
+    - name: "Set fact of ISO file path"
+      ansible.builtin.set_fact:
+        dh_guest_iso_path: "{{ dh_host_download_path }}{{ dh_guest_iso_file_name }}"
+
+# iso_nfs_server_path is configured
+- name: "Set guest OS image file path in mounted NFS directory"
+  when: iso_nfs_server_path is defined and iso_nfs_server_path
+  block:
+    - name: "Mount NFS datastore"
+      include_tasks: ../../common/win_host_mount_nfs.yml
+    - name: "Set fact of guest OS image file path"
+      ansible.builtin.set_fact:
+        dh_guest_iso_path: "X:\\{{ dh_guest_iso_path }}"
+
+# iso_nfs_server_path is not configured
+- name: "Set guest OS image file path to host VM CDROM"
+  when:
+    - iso_nfs_server_path is undefined or not iso_nfs_server_path
+    - is_vsphere_env
+    - dh_guest_iso_path is regex("^\[.*\]\s.+")
+  block:
+    - name: "Connect guest OS image to host VM CDROM"
+      include_tasks: ../../../common/vm_connect_cdrom_to_iso.yml
+      vars:
+        vm_cdrom_iso_file: "{{ dh_guest_iso_path }}"
+    - name: "Set fact of VM CDROM to use physical drive"
+      ansible.builtin.set_fact:
+        dh_vm_cdrom_use_physical: true
+    - name: "Get mounted CDROM drive letter"
+      include_tasks: ../../../windows/utils/win_execute_cmd.yml
+      vars:
+        win_powershell_cmd: "(Get-Volume | where-object {$_.DriveType -eq 'CD-ROM' -and $_.OperationalStatus -eq 'OK'}).DriveLetter"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "Set fact of guest OS image file path"
+      when:
+        - win_powershell_cmd_output.stdout_lines is defined
+        - win_powershell_cmd_output.stdout_lines | length > 0
+      ansible.builtin.set_fact:
+        dh_guest_iso_path: "{{ win_powershell_cmd_output.stdout_lines[0] }}:"
+
+- name: "Check guest OS image file status"
+  when: not dh_vm_cdrom_use_physical
+  block:
+    - name: "Get guest OS image file status in Windows host"
+      include_tasks: ../../../windows/utils/win_check_file_exist.yml
+      vars:
+        win_check_file_exist_file: "{{ dh_guest_iso_path }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+#        win_check_file_become: true
+#        win_check_file_become_user: "{{ host_machine_username }}"
+
+    - name: "Make sure guest OS image file exists"
+      ansible.builtin.assert:
+        that:
+          - win_check_file_exist_result
+        fail_msg: "Guest OS image file path '{{ dh_guest_iso_path }}' does not exist in Windows host."

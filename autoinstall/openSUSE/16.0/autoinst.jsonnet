@@ -68,7 +68,7 @@ local nicName = agama.findByID(agama.lshw, 'network').logicalname;
         id: nicName,
         interface: nicName,
         method4: "auto",
-        method6: "auto",
+        method6: "disabled",
         ignoreAutoDns: false,
         status: "up",
         autoconnect: true
@@ -106,19 +106,15 @@ local nicName = agama.findByID(agama.lshw, 'network').logicalname;
           echo "Execute post-install script" >/dev/ttyS0
           echo "Config SSHd to permit root login" >/dev/ttyS0
           echo "PermitRootLogin yes" >/etc/ssh/sshd_config.d/10_root_login.conf
-          echo "{{ autoinstall_complete_msg }}" >/dev/ttyS0
-        |||
-      }
-    ],
-    init: [
-      {
-        name: "init_script",
-        content: |||
-          #!/bin/bash
+          
           echo "Archive Agama installation logs" >/dev/ttyS0
           cd /var/log
-          tar -czvf agama-installation.tar.gz agama-installation >/dev/ttyS0
-          echo "Agama installation logs can be found in /var/log/agama-installation.tar.gz" >/dev/ttyS0
+          if [ -d "agama-installation" ]; then
+              tar -czvf agama-installation.tar.gz agama-installation >/dev/ttyS0
+              echo "Agama installation logs can be found in /var/log/agama-installation.tar.gz" >/dev/ttyS0
+          fi
+
+          echo "{{ autoinstall_complete_msg }}" >/dev/ttyS0
         |||
       }
     ]

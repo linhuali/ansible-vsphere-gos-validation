@@ -1,0 +1,16 @@
+# Copyright 2021-2025 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Take screenshot for a guest vm
+# Parameters:
+#   screenshot_name: the name of screenshot
+#
+- name: "Take a VM screenshot after {{ screenshot_name }}"
+  ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} capture {{ current_test_log_folder }}/vm_screenshot_after_{{ screenshot_name }}.png"
+  register: vncdo_take_screenshot
+  async: 300
+  poll: 60
+  ignore_errors: true
+
+- name: "Display the vncdotool taking screenshot result"
+  ansible.builtin.debug: var=vncdo_take_screenshot

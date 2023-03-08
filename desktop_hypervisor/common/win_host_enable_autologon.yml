@@ -1,0 +1,15 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+
+- name: "Enable Auto logon for {{ host_machine_username }}"
+  ansible.windows.win_shell: |
+       $username = "{{ host_machine_username }}"
+       $password = "{{ host_machine_password }}"
+         if ($username -and $password) {
+           $reg_winlogon_path = "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon"
+           Set-ItemProperty -Path $reg_winlogon_path -Name AutoAdminLogon -Value 1
+           Set-ItemProperty -Path $reg_winlogon_path -Name DefaultUserName -Value $username
+           Set-ItemProperty -Path $reg_winlogon_path -Name DefaultPassword -Value $password
+             }
+  delegate_to: "{{ host_machine_hostname }}"

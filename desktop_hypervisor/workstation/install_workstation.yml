@@ -1,0 +1,117 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Description:
+#   This test case is used for installing Workstation in Linux or Windows machine.
+#
+- name: install_workstation
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: "Test case block"
+      block:
+        - name: "Test case is blocked"
+          include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Required parameter 'workstation_download_url' is not defined to be a valid value: '{{ workstation_download_url | default('') }}'"
+            skip_reason: "Blocked"
+          when: workstation_download_url is undefined or not workstation_download_url
+
+        - name: "Initialize Desktop Hypervisor installation status and installed path"
+          ansible.builtin.set_fact:
+            dh_host_installed: false
+            dh_host_installed_path: ''
+
+        - name: "Test setup"
+          include_tasks: ../common/dh_test_setup.yml
+          vars:
+            create_dh_test_folder: true
+
+        - name: "Skip test case"
+          include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Skip test case due to VMware Workstation is supported to be installed on 64bit OS, this host machine OS is: {{ guest_os_ansible_architecture | default('') }}."
+            skip_reason: "Not Supported"
+          when:
+            - guest_os_ansible_architecture is defined
+            - guest_os_ansible_architecture is not match('.*64.*')
+
+        - name: "Set fact of current test case name"
+          ansible.builtin.set_fact:
+            current_testcase_name: "install_workstation_in_{{ host_machine_type }}_host"
+        - name: "Set fact of current test case name for nested host"
+          ansible.builtin.set_fact:
+            current_testcase_name: "{{ current_testcase_name ~ '_vm' }}"
+          when: is_vsphere_env
+
+        - name: "Set update_workstation by default"
+          ansible.builtin.set_fact:
+            update_workstation: true
+          when: update_workstation is undefined
+
+        - name: "Skip test case"
+          include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Test case '{{ ansible_play_name }}' is skipped because 'update_workstation' is set to: {{ update_workstation | default(false) }}"
+            skip_reason: "Skipped"
+          when: not update_workstation | bool
+
+        - name: "Enable host VM nested virtualization"
+          include_tasks: enable_host_vm_nested_virtual.yml
+          when: is_vsphere_env
+
+        - name: "Get host VM VBS status"
+          include_tasks: ../../windows/utils/win_get_vbs_guest.yml
+          vars:
+            vm_guest_ip: "{{ host_machine_hostname }}"
+          when:
+            - host_machine_type == "windows"
+            - not is_vsphere_env
+            - guest_os_ansible_distribution_major_ver | int == 10 and guest_os_build_num | int >= 14393
+
+        - name: "Check host VM nested virtualization"
+          when:
+            - not is_vsphere_env
+            - win_vbs_status_guest is defined
+            - not (win_vbs_status_guest | int == 1 or win_vbs_status_guest | int == 2)
+            - host_machine_type == "windows"
+          block:
+            - name: "Get if host require nested virtualization"
+              include_tasks: check_host_vm_nested_virtual.yml
+            - name: "Skip test case"
+              when:
+                - dh_host_is_vm
+                - not dh_host_nest_virtual
+              include_tasks: ../../common/skip_test_case.yml
+              vars:
+                skip_msg: "Test case '{{ ansible_play_name }}' is blocked because host machine is a virtual machine while VM nested virtualization is not enabled."
+                skip_reason: "Blocked"
+
+        - name: "Un/install Workstation in Windows host"
+          when: host_machine_type == "windows"
+          block:
+            - name: "Uninstall Workstation in Windows host if it exists"
+              include_tasks: uninstall_ws_windows_host.yml
+              when: dh_host_installed
+            - name: "Install Workstation in Windows host"
+              include_tasks: install_ws_windows_host.yml
+
+        - name: "Install Workstation in Linux host"
+          when: host_machine_type == "linux"
+          include_tasks: install_ws_linux_host.yml
+
+        - name: "Display Desktop Hypervisor installation status"
+          ansible.builtin.debug:
+            msg:
+              - "Desktop Hypervisor is installed: {{ dh_host_installed }}"
+              - "Desktop Hypervisor is installed to : {{ dh_host_installed_path }}"
+        - name: "Reset base snapshot"
+          include_tasks: ../../common/reset_base_snapshot.yml
+          when: is_vsphere_env
+
+      rescue:
+        - name: "Test case failure"
+          include_tasks: ../../common/test_rescue.yml
+          vars:
+            exit_testing_when_fail: true
+          #when: is_vsphere_env

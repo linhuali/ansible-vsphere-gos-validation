@@ -1,0 +1,43 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+#- name: "Check the vmx file in Windows host"
+#  include_tasks: ../../../windows/utils/win_check_file_exist.yml
+#  vars:
+#    win_check_file_exist_file: "{{ dh_vm_vmx_path }}"
+#    vm_guest_ip: "{{ host_machine_hostname }}"
+#  register: dh_guest_vm_extracted
+
+- name: "Get VM existence status"
+  include_tasks: check_vm_exists.yml
+
+- name: "Power off Guest VM"
+  include_tasks: dh_host_power_vm.yml
+  vars:
+      vm_power_option: "stop"
+  when: dh_vm_check_exist
+
+- name: "Remove Guest VM in Windows host"
+  ansible.windows.win_shell: |
+    if ($(Test-Path "{{ dh_vm_new_path }}")) {
+      Remove-Item -Path "{{ dh_vm_new_path }}" -Recurse
+    }
+  delegate_to: "{{ host_machine_hostname }}"
+  become: "{{ win_execute_cmd_become | default(false) }}"
+  become_method: runas
+  become_user: "{{ win_execute_cmd_become_user | default('Administrator') }}"
+  when:
+    - dh_vm_vmx_check_exist
+    - host_machine_type == "windows"
+
+- name: "Stop and remove Guest VM in Linux host"
+  when: host_machine_type == "linux"
+  block:
+    - name: "Stop Guest VM"
+      include_tasks: dh_host_stop_vms.yml
+    - name: "Remove Guest VM in Linux host"
+      ansible.builtin.shell: |
+        if [ -d {{ dh_vm_path }} ]; then rm -rf {{ dh_vm_path }}; fi
+      register: remove_ovf_result
+      delegate_to: "{{ host_machine_hostname }}"
+      when: dh_vm_vmx_check_exist

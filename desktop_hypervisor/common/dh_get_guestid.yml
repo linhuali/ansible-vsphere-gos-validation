@@ -1,0 +1,24 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get the guestID from the guest vmx file
+#
+- name: "Get the vmx file to local"
+  include_tasks: dh_get_file.yml
+  vars:
+    file_src_path: "{{ dh_vm_vmx_path }}"
+    file_dst_path: "{{ current_test_log_folder }}"
+
+- name: "Set facts of local vmx path"
+  ansible.builtin.set_fact:
+    dh_vm_vmx_file_local: "{{ file_local_path }}"
+
+- name: "Get the guestID"
+  ansible.builtin.shell: |
+    cat "{{ dh_vm_vmx_file_local }}" |grep -o -E 'guest(OS|os) = ".*"'|cut -d '"' -f 2
+  register: dh_guestid_result
+
+- name: "Display the guestID"
+  when: dh_guestid_result.stdout is defined and dh_guestid_result.stdout
+  ansible.builtin.set_fact:
+    dh_guest_id: "{{ dh_guestid_result.stdout }}"

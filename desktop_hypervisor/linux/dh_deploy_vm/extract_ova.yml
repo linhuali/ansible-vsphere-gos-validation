@@ -1,0 +1,38 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Initialize the facts of Guest vmx path"
+  ansible.builtin.set_fact:
+    dh_guest_vm_extracted: false
+
+- name: "Initialize the facts of Guest OVA/OVF URL"
+  when: iso_http_server_path is defined and iso_http_server_path
+  ansible.builtin.set_fact:
+    dh_guest_image_path: "{{ iso_http_server_path }}{{ dh_guest_iso_path }}"
+
+- name: "Extract OVA/OVF to VMX using ovftool"
+  ansible.builtin.shell: |
+    if [ {{ dh_guest_image_path }} =~ 'ovf' ]; then
+      cd {{ dh_vm_path }}
+      ovftool --overwrite --skipManifestCheck {{ dh_guest_image_path }} {{ dh_vm_new_name }}.vmx
+    else
+      ovftool --overwrite --skipManifestCheck {{ dh_guest_image_path }} {{ dh_vm_new_name }}.ovf
+      cd {{ dh_vm_path }}
+      ovftool --overwrite --skipManifestCheck --acceptAllEulas --overwrite ../{{ dh_vm_new_name }}.ovf {{ dh_vm_new_name }}.vmx
+    fi
+  register: extract_result
+  failed_when: >
+    ( extract_result.stdout is defined and 'Error' in extract_result.stdout )
+    or
+    ( extract_result.stderr is defined and 'Error' in extract_result.stderr )
+  delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Chmod to guest vm files "
+  ansible.builtin.shell: "chmod -R 0777 {{ dh_vm_path }}"
+  delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Set the result of ovftool extract"
+  when: extract_result.stderr is not defined or not extract_result.stderr
+  ansible.builtin.set_fact:
+    dh_guest_vm_extracted: true
+    #dh_guest_vm_path: "{{ extract_ovf_result.stdout_lines | select ('match', 'Writing VMX file:.*.vmx', ignorecase=True) | regex_findall('/.*.vmx') | first }}"
