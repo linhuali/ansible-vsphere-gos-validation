@@ -1,0 +1,27 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Stop VMs if running before uninstall_workstation"
+  include_tasks: ../common/dh_host_stop_vms.yml
+
+- name: "Uninstall Workstation if it exists"
+  ansible.builtin.shell: "sudo vmware-installer --required -u vmware-workstation"
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_uninstall_result
+  failed_when:
+    - ws_uninstall_result.stderr is defined
+    - ws_uninstall_result.stderr
+
+- name: "Display Workstation silent install result"
+  debug: var=ws_uninstall_result
+
+- name: "Check Workstation installation status in Linux host"
+  include_tasks: ../common/lin_host_check_workstation.yml
+
+- name: "Assert Workstation is uninstalled"
+  ansible.builtin.assert:
+    that:
+      - dh_host_installed is defined and not dh_host_installed
+    fail_msg: "Failed to uninstall Workstation"
+
+
