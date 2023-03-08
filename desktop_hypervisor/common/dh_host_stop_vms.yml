@@ -1,0 +1,28 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Stop VMs if running in Windows Host"
+  ansible.windows.win_powershell:
+    script: |
+      cd "{{ dh_host_installed_path }}"
+      $RunningVMs = .\vmrun list | select-object -skip 1
+      Foreach ($RunningVM in $RunningVMs) {
+        .\vmrun stop "$RunningVM"
+      }
+  delegate_to: "{{ host_machine_hostname }}"
+  when:
+    - host_machine_type == "windows"
+    - dh_host_installed
+
+- name: "Stop VMs if running before un/install_workstation"
+  ansible.builtin.shell: |
+    vms=`vmrun list | grep -e '.*.vmx'`
+    for vm in $vms; do vmrun stop $vm; done
+  delegate_to: "{{ host_machine_hostname }}"
+  become: true
+  become_user: "{{ dh_vm_username }}"
+  async: 180
+  poll: 10
+  when:
+    - host_machine_type == "linux"
+    - dh_host_installed

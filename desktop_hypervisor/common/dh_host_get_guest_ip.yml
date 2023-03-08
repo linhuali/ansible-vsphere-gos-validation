@@ -1,0 +1,67 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get VM guest OS IP address on Windows host when
+# VMware Tools is installed in guest
+#
+- name: "Initialize VM guest IP address"
+  ansible.builtin.set_fact:
+    dh_vm_guest_ip: ''
+
+- name: "Get the IP from Windows Guest"
+  when: host_machine_type == "windows"
+  block:
+    - name: "Set fact of vmrun command for getting guest IP"
+      ansible.builtin.set_fact:
+        win_vmrun_get_ip_cmd: >-
+          Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws getGuestIPAddress "{{ dh_vm_vmx_path }}" -wait' -NoNewWindow
+
+    - name: "Pull Guest IP with vmrun"
+      ansible.windows.win_shell: "{{ win_vmrun_get_ip_cmd }}"
+      delay: 10
+      retries: 360
+      delegate_to: "{{ host_machine_hostname }}"
+      register: win_get_ip_status
+      until:
+        - win_get_ip_status is defined
+        - win_get_ip_status.stdout_lines is defined
+        - win_get_ip_status.stdout_lines | length != 0
+        - win_get_ip_status.stdout_lines[0] is regex("^\d+\.\d+\.\d+\.\d+$")
+        - "'error' not in (win_get_ip_status.stdout_lines[0] | lower)"
+      failed_when: win_get_ip_status is not success
+    - name: "Set the fact of Guest IP"
+      ansible.builtin.set_fact:
+        get_ip_status: "{{ win_get_ip_status }}"
+
+- name: "Get the IP from Linux Guest"
+  when: host_machine_type == "linux"
+  block:
+    - name: "Pull Guest IP with vmrun"
+      ansible.builtin.shell: "vmrun getGuestIPAddress {{ dh_vm_vmx_path }} -wait"
+      become: yes
+      become_user: "{{ dh_vm_username }}"
+      delay: 20
+      retries: "{{ dh_guest_getip_retry_times | default(10) }}"
+      delegate_to: "{{ host_machine_hostname }}"
+      register: lin_get_ip_status
+      until:
+        - lin_get_ip_status is defined
+        - lin_get_ip_status.stdout_lines is defined
+        - lin_get_ip_status.stdout_lines | length != 0
+        - lin_get_ip_status.stdout_lines[0] is regex("^\d+\.\d+\.\d+\.\d+$")
+        - "'error' not in (lin_get_ip_status.stdout_lines[0] | lower)"
+    - name: "Set the fact of Guest IP"
+      ansible.builtin.set_fact:
+        get_ip_status: "{{ lin_get_ip_status }}"
+
+- name: "Set fact of guest IP"
+  ansible.builtin.set_fact:
+    dh_vm_guest_ip: "{{ get_ip_status.stdout_lines[0] }}"
+    vm_guest_ip: "{{ get_ip_status.stdout_lines[0] }}"
+
+- name: "Print VM guest IP address"
+  ansible.builtin.debug: var=vm_guest_ip
+
+- name: "Display VM guest IP address"
+  ansible.builtin.debug:
+    msg: "Get VM '{{ dh_vm_vmx_path }}' guest IP address: {{ dh_vm_guest_ip }}"
