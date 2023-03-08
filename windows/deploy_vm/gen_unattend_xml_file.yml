@@ -9,7 +9,7 @@
 
 - name: "Set fact of target Autounattend.xml file path"
   ansible.builtin.set_fact:
-    created_unattend_file: "{{ unattend_dest_path }}/{{ unattend_install_conf | basename }}"
+    created_unattend_file: "{{ unattend_dest_path }}/Autounattend.xml"
 
 - name: "Create directory of dest path for Autounattend.xml file"
   include_tasks: ../../common/create_directory.yml
@@ -19,7 +19,7 @@
 - name: "Set fact of the 'processorArchitecture' info in Autounattend.xml"
   ansible.builtin.set_fact:
     win_unattend_arch: >-
-      {%- if esxi_cpu_vendor == 'arm' -%}arm64
+      {%- if (esxi_cpu_vendor | default('intel')) == 'arm' -%}arm64
       {%- elif guest_id is search('64') -%}amd64
       {%- else -%}x86
       {%- endif -%}

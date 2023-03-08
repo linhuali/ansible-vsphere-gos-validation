@@ -1,0 +1,52 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+#- name: "Check the vmx file in Windows host"
+#  include_tasks: ../../../windows/utils/win_check_file_exist.yml
+#  vars:
+#    win_check_file_exist_file: "{{ dh_vm_vmx_path }}"
+#    vm_guest_ip: "{{ host_machine_hostname }}"
+#  register: dh_guest_vm_extracted
+
+- name: "Open Guest vm on {{ host_machine_hostname }}"
+  when: dh_guest_vm_extracted
+  block:
+    - name: "Update the vmx file extracted from ovf"
+      include_tasks: ../../common/set_vm_config.yml
+
+    - name: "Power on VM"
+      include_tasks: ../../common/dh_host_power_vm.yml
+      vars:
+        vm_power_option: "start"
+
+    - name: "Pause 30 seconds before taking VM screenshot"
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: "Get VNC port"
+      ansible.windows.win_command:
+        cmd: '"{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} readVariable "{{ dh_vm_vmx_path }}" runtimeConfig remotedisplay.vnc.port'
+      register: vnc_port
+      delegate_to: "{{ host_machine_hostname }}"
+
+    - name: "Take a VM screenshot after start"
+      include_tasks: ../../common/dh_vm_take_screenshot.yml
+      vars:
+        screenshot_name: "start"
+      when: dh_vm_vnc_port is defined and dh_vm_vnc_port
+
+    - name: "Get Guest VM IP"
+      include_tasks: ../../common/dh_host_get_guest_ip.yml
+
+    - name: "Power off VM"
+      include_tasks: ../../common/dh_host_power_vm.yml
+      vars:
+        vm_power_option: "stop"
+
+    - name: "Remove OVF"
+      include_tasks: ../../../windows/utils/win_execute_cmd.yml
+      vars:
+        win_powershell_cmd: >-
+          if ($(Test-Path "{{ dh_vm_path }}\\{{ dh_vm_new_name }}")) {Remove-Item "{{ dh_vm_path }}\{{ dh_vm_new_name }}" -Recurse -Force}
+        vm_guest_ip: "{{ host_machine_hostname }}"
+      when: dh_cleanup_ovf is defined and dh_cleanup_ovf

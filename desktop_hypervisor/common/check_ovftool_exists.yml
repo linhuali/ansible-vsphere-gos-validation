@@ -1,0 +1,38 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Check ovftool installed path in Windows Host"
+  when:
+    - host_machine_type == "windows"
+    - dh_host_installed
+    - dh_host_installed_path is defined and dh_host_installed_path
+  block:
+    - name: "Set fact of ovftool installed path"
+      ansible.builtin.set_fact:
+        dh_host_ovftool_path: "{{ dh_host_installed_path }}\\OVFTool\\ovftool.exe"
+    - name: "Check ovftool installed path in Windows host"
+      include_tasks: ../../../windows/utils/win_check_file_exist.yml
+      vars:
+        win_check_file_exist_file: "{{ dh_host_ovftool_path }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "Display win_check_file_exist_result"
+      ansible.builtin.debug: var=win_check_file_exist_result
+      failed_when: not win_check_file_exist_result
+    - name: "Set fact of file existence"
+      ansible.builtin.set_fact:
+        dh_host_ovftool_exists: "{{ win_check_file_exist_result }}"
+
+- name: "Check ovftool installed path in Linux host"
+  when:
+    - host_machine_type == "linux"
+    - dh_host_installed
+    - dh_host_installed_path is defined and dh_host_installed_path
+  block:
+    - name: "Get ovftool installed path in Linux host"
+      ansible.builtin.shell: "which ovftool"
+      delegate_to: "{{ host_machine_hostname }}"
+      register: lin_software_install_path
+    - name: "Set fact of ovftool installed path"
+      ansible.builtin.set_fact:
+        dh_host_ovftool_path: "{{ lin_software_install_path.stdout }}"
+        dh_host_ovftool_exists: "{{ true if lin_software_install_path.stdout else false }}"
