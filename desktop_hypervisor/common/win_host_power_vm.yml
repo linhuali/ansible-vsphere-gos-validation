@@ -1,0 +1,73 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+# vmrun power operation in Windows host
+# Parameters:
+#   power_option: start, stop, reset, suspend, pause, unpause
+---
+- name: "Set fact of PsExec64.exe tool paths"
+  ansible.builtin.set_fact:
+    psexec_path_local: "../../tools/PsExec64.exe"
+    psexec_path_remote: "C:\\PsExec64.exe"
+
+- name: "Check PsExec64.exe tool in Windows host"
+  include_tasks: ../../windows/utils/win_check_file_exist.yml
+  vars:
+    win_check_file_exist_file: "{{ psexec_path_remote }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Copy PsExec64.exe tool to Windows host if it doesn't exist"
+  when: not win_check_file_exist_result
+  include_tasks: ../../windows/utils/win_copy_file_from_local.yml
+  vars:
+    src_path_local: "{{ psexec_path_local }}"
+    dest_path_remote: "{{ psexec_path_remote }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Get Session ID with cmd command"
+  ansible.windows.win_shell: for /f "tokens=2-4" %a in ('query session %username%') do @if "%c"=="Active" echo %b
+  args:
+    executable: cmd
+  register: session_id
+  delegate_to: "{{ host_machine_hostname }}"
+
+- name: "vmrun power operation: {{ power_option }} vm"
+  community.windows.win_psexec:
+    command: >-
+      "{{ dh_host_vmrun_path }}" -T ws {{ power_option }} "{{ dh_vm_vmx_path }}"
+    executable: "{{ psexec_path_remote }}"
+    interactive: true
+    nobanner: true
+    timeout: 60
+    session: "{{ session_id.stdout }}"
+    username: "{{ host_machine_username }}"
+    password: "{{ host_machine_password }}"
+    hostnames:
+    - localhost
+  register: power_vm_result
+  delegate_to: "{{ host_machine_hostname }}"
+  async: 300
+  poll: 30
+  # become: true
+  # become_method: runas
+  # become_user: "{{ host_machine_username }}"
+
+- name: "Pause 30 seconds after power operation"
+  ansible.builtin.pause:
+    seconds: 30
+
+- name: "Get VM status"
+  include_tasks: ../../windows/utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: >-
+      Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList "-T ws list" -NoNewWindow
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Set fact of VM existence status"
+  ansible.builtin.set_fact:
+    dh_vm_exists: true
+  when: dh_vm_vmx_path in win_powershell_cmd_output.stdout
+
+- name: "Set fact of VM existence status"
+  ansible.builtin.set_fact:
+    dh_vm_exists: false
+  when: dh_vm_vmx_path not in win_powershell_cmd_output.stdout

@@ -1,0 +1,27 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Stop VMs if running before uninstall_workstation"
+  include_tasks: ../common/dh_host_stop_vms.yml
+
+# Set the uninstall_cmd compatible with Windows Server 2012 R2
+- name: "Set fact of uninstall command"
+  ansible.builtin.set_fact:
+    uninstall_cmd: "$app = Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -eq \"VMware Workstation\"}; $app.Uninstall()"
+    #uninstall_cmd: "Install-PackageProvider -Name Nuget -Confirm:$false -Force -ForceBootstrap; Get-Package -Name \"VMware Workstation*\" | Uninstall-Package"
+
+- name: "Uninstall Workstation if it's installed"
+  include_tasks: ../../windows/utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "{{ uninstall_cmd }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+  register: ws_uninstall_result
+
+- name: "Check Workstation installation status in Windows host"
+  include_tasks: ../common/win_host_check_workstation.yml
+
+- name: "Assert Workstation is uninstalled"
+  ansible.builtin.assert:
+    that:
+      - dh_host_installed is defined and not dh_host_installed
+    fail_msg: "Failed to uninstall Workstation"
