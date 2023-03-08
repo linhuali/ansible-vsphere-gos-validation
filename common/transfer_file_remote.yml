@@ -19,7 +19,7 @@
     owner: "{{ transfer_file_remote_owner | default(omit) }}"
     group: "{{ transfer_file_remote_gp | default(omit) }}"
     mode: "{{ transfer_file_remote_mode | default('0666') }}"
-    force: false
+    force: "{{ transfer_file_remote_force | default(false) }}"
   register: transfer_file_remote_result
   delegate_to: "{{ transfer_file_remote_server }}"
 

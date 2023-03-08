@@ -6,7 +6,7 @@
 
 - name: "Handle known issue"
   when:
-    - esxi_cpu_vendor == 'arm'
+    - (esxi_cpu_vendor | default('intel')) == 'arm'
     - gos_problem_device_list | length == 1
     - gos_problem_device_list[0]['device_name'] == "Base System Device"
   block:

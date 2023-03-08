@@ -1,0 +1,52 @@
+# Copyright 2023-2026 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get available TCP port from 5901 to 6001 can be used as VNC server port in host.
+# Please refer to VMware doc:
+# https://docs.vmware.com/en/VMware-Workstation-Pro/17/com.vmware.ws.using.doc/
+# GUID-7172F398-D1DA-4BF2-86F8-BF1C9C2EBFA3.html
+#   Return:
+#     vnc_server_port: available port number in range 5901-6001.
+
+- name: "Initialize VNC server port"
+  ansible.builtin.set_fact:
+    vnc_server_port: 'NA'
+
+- name: "Get all used ports on Linux host"
+  when: host_machine_type == "linux"
+  block:
+    - name: "Fetch listening TCP ports in range 5901-6000"
+      ansible.builtin.shell: |
+        sudo lsof -i -P -n | grep LISTEN | awk '{print $9}' | awk -F':' '{print $NF}' | sort -u
+      delegate_to: "{{ host_machine_hostname }}"
+      register: used_ports_raw
+      changed_when: false
+      ignore_errors: true
+
+    - name: "Calculate first free port (Linux)"
+      ansible.builtin.set_fact:
+        vnc_server_port: "{{ (range(5901, 6001) | list | difference(used_ports_raw.stdout_lines | default([]) | map('int') | list)) [0] | default('NA') }}"
+
+- name: "Get all used ports on Windows host"
+  when: host_machine_type == "windows"
+  block:
+    - name: "Fetch listening TCP ports in range 5901-6000"
+      include_tasks: ../../windows/utils/win_execute_cmd.yml
+      vars:
+        win_powershell_cmd: "(Get-NetTCPConnection -State Listen).LocalPort | Sort-Object -Unique"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+        win_execute_cmd_ignore_error: true
+
+    - name: "Calculate first free port (Windows)"
+      ansible.builtin.set_fact:
+        vnc_server_port: "{{ (range(5901, 6001) | list | difference(win_powershell_cmd_output.stdout_lines | default([]) | map('int') | list)) [0] | default('NA') }}"
+
+- name: "Display the VNC server port"
+  ansible.builtin.debug: var=vnc_server_port
+
+- name: "Check get valid VNC server port"
+  ansible.builtin.assert:
+    that:
+      - vnc_server_port != 'NA'
+      - (vnc_server_port | int) >= 5901 and (vnc_server_port | int) < 6001
+    fail_msg: "Can not get available port in range 5901 to 6000 as VNC server port: '{{ vnc_server_port }}'"
