@@ -28,7 +28,7 @@
 
 - name: "Add PVSCSI driver for unattend install"
   when:
-    - boot_disk_controller == 'paravirtual'
+    - boot_disk_controller == 'paravirtual' or boot_disk_controller == 'pvscsi'
     - windows_has_inbox_driver is undefined or not windows_has_inbox_driver
   block:
     - name: "Get PVSCSI driver"
@@ -40,7 +40,7 @@
 
 - name: "Add VMXNET3 driver for unattend install on ESXi on ARM"
   when:
-    - esxi_cpu_vendor == 'arm'
+    - esxi_cpu_vendor is defined and esxi_cpu_vendor == 'arm'
     - network_adapter_type == 'vmxnet3'
   block:
     - name: "Get VMXNET3 driver"
@@ -56,18 +56,21 @@
     create_iso_src: "{{ unattend_install_file_list }}"
     create_iso_dest: "{{ local_cache }}/{{ unattend_install_iso }}"
 
-- name: "Copy generated unattend install ISO file to ESXi host"
-  include_tasks: ../../common/esxi_upload_datastore_file.yml
-  vars:
-    src_file_path: "{{ local_cache }}/{{ unattend_install_iso }}"
-    dest_file_path: "{{ unattend_install_iso }}"
-    upload_file_timeout: 600
+- name: "Copy unattend install file to ESXi host"
+  when: vsphere_host_name is defined and vsphere_host_name
+  block:
+    - name: "Copy generated unattend install ISO file to ESXi host"
+      include_tasks: ../../common/esxi_upload_datastore_file.yml
+      vars:
+        src_file_path: "{{ local_cache }}/{{ unattend_install_iso }}"
+        dest_file_path: "{{ unattend_install_iso }}"
+        upload_file_timeout: 600
 
-- name: "Display the unattend install ISO file path on ESXi host"
-  ansible.builtin.debug:
-    msg: "Unattend install ISO file is uploaded to ESXi host: {{ transferred_unattend_iso }}"
+    - name: "Display the unattend install ISO file path on ESXi host"
+      ansible.builtin.debug:
+        msg: "Unattend install ISO file is uploaded to ESXi host: {{ transferred_unattend_iso }}"
 
-- name: "Append generated unattend ISO file to the list"
-  ansible.builtin.set_fact:
-    os_installation_iso_list: "{{ os_installation_iso_list + [transferred_unattend_iso] }}"
-    os_install_iso_list_len: "{{ os_install_iso_list_len | int + 1 }}"
+    - name: "Append generated unattend ISO file to the list"
+      ansible.builtin.set_fact:
+        os_installation_iso_list: "{{ os_installation_iso_list + [transferred_unattend_iso] }}"
+        os_install_iso_list_len: "{{ os_install_iso_list_len | int + 1 }}"

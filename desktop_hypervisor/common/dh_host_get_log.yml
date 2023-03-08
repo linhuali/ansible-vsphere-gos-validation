@@ -1,0 +1,59 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Wait for specified message appears in VM's log file with spcified times.
+# Parameters:
+#   vm_wait_log_name: the log file name in host
+#   vm_wait_log_msg: the regular expression of message to wait for appearing.
+#   vm_wait_log_msg_times: the at least times the specified message appearing in log file.
+#     Default is 1.
+#   vm_wait_log_retries: the times to re-check log file to wait for message.
+#   vm_wait_log_delay: seconds to delay for a retry.
+#   vm_wait_log_ignore_errors: true to ignore task failure. Default is false.
+#   the output of log content. Default is true.
+#
+- name: "Initialize the logs list found and the log message wait result"
+  ansible.builtin.set_fact:
+    vm_wait_log_msg_list: []
+    vm_wait_log_msg_success: false
+
+- name: "Get the log content from Linux Host"
+  when: host_machine_type == "linux"
+  ansible.builtin.shell: "cat {{ vm_wait_log_name }} | grep -a -E -o '{{ vm_wait_log_msg }}'"
+  become: yes
+  become_user: "{{ dh_vm_username }}"
+  delegate_to: "{{ host_machine_hostname }}"
+  register: get_vm_log_content
+  until:
+    - get_vm_log_content is defined
+    - get_vm_log_content.stdout_lines is defined
+    - (get_vm_log_content.stdout_lines | regex_findall(vm_wait_log_msg) | length) >= (vm_wait_log_msg_times | default(1))
+  delay: "{{ vm_wait_log_delay | default(5) }}"
+  retries: "{{ vm_wait_log_retries | default(60) }}"
+  ignore_errors: "{{ vm_wait_log_ignore_errors | default(false) }}"
+
+- name: "Set fact of the logs list found for specified log message"
+  when:
+    - get_vm_log_content is defined
+    - get_vm_log_content.stdout_lines is defined
+    - get_vm_log_content.stdout_lines | length != 0
+  ansible.builtin.set_fact:
+    vm_wait_log_msg_list: "{{ get_vm_log_content.stdout_lines | regex_findall(vm_wait_log_msg) }}"
+
+- name: "Set fact of log message wait result"
+  when: vm_wait_log_msg_list | length >= (vm_wait_log_msg_times | default(1))
+  ansible.builtin.set_fact:
+    vm_wait_log_msg_success: true
+
+- name: "Display log message wait result"
+  ansible.builtin.debug:
+    msg:
+      - "Found '{{ vm_wait_log_msg }}' message in VM log file '{{ vm_wait_log_name }}': {{ 'Success' if vm_wait_log_msg_success | bool else 'Failure' }}"
+      - "Found logs list: {{ vm_wait_log_msg_list }}"
+
+- name: "VM log info check failure"
+  when:
+    - vm_wait_log_ignore_errors is undefined or not (vm_wait_log_ignore_errors | bool)
+    - not (vm_wait_log_msg_success | bool)
+  ansible.builtin.fail:
+    msg: "Found '{{ vm_wait_log_msg }}' message in VM log file '{{ vm_wait_log_name }}' appearing '{{ vm_wait_log_msg_list | length }}' times, while expect '{{ vm_wait_log_msg_times | default(1) }} times.'"

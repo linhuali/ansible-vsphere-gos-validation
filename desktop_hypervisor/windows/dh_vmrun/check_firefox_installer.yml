@@ -1,0 +1,84 @@
+# Copyright 2026 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# --- 1. INITIALIZATION PHASE ---
+
+# Set the appropriate Firefox download URL based on OS version if not already defined
+- name: "Initialize Firefox download URL based on OS version"
+  ansible.builtin.set_fact:
+    firefox_download_url: >-
+      {{ 
+        'https://download.mozilla.org/?product=firefox-115.0.3-ssl&os=win&lang=en-US' 
+        if (dh_guest_id is match('windows(7|8).*')) 
+        else 'https://download.mozilla.org/?product=firefox-latest&os=win&lang=en-US' 
+      }}
+  when: firefox_download_url | default('') | length == 0
+
+# --- 2. CLASSIFICATION PHASE ---
+
+- name: "Categorize the URL type"
+  ansible.builtin.set_fact:
+    # Determine if the URL is the Mozilla API redirector
+    is_mozilla_api: "{{ 'download.mozilla.org' in firefox_download_url }}"
+    # Determine if it's a direct .exe link
+    is_direct_exe: "{{ firefox_download_url.split('?')[0] is match('.*\\.exe$') }}"
+
+# --- 3. REDIRECTION HANDLING ---
+
+- name: "Handle Mozilla API Redirects"
+  when: is_mozilla_api
+  block:
+    - name: "Request HEAD from API to find the actual CDN location"
+      ansible.builtin.uri:
+        url: "{{ firefox_download_url }}"
+        method: HEAD
+        follow_redirects: none
+        status_code: [302]
+      register: api_check
+
+    - name: "Store the redirected CDN URL into firefox_url"
+      ansible.builtin.set_fact:
+        firefox_url: "{{ api_check.location }}"
+
+- name: "Handle Direct EXE Links (e.g., test.com or direct CDN)"
+  ansible.builtin.set_fact:
+    firefox_url: "{{ firefox_download_url }}"
+  when: not is_mozilla_api and is_direct_exe
+
+# --- 4. CONNECTIVITY & FIREWALL TEST ---
+
+- name: "Perform final connectivity check on the target resource"
+  ansible.builtin.uri:
+    url: "{{ firefox_url }}"
+    method: HEAD
+    validate_certs: yes
+    timeout: 15
+  register: final_check
+  ignore_errors: yes
+  when: firefox_url is defined
+
+# --- 5. REPORTING & ERROR ANALYSIS ---
+
+- name: "Analyze and display connection results"
+  ansible.builtin.debug:
+    msg:
+      - "Source URL: {{ firefox_download_url }}"
+      - "Resolved Firefox URL: {{ firefox_url | default('UNDEFINED') }}"
+      - "Connectivity Status: {{ 'OK' if (final_check.status is defined and final_check.status == 200) else 'FAILED' }}"
+      - "Technical Detail: {{ final_check.msg | default('Success') }}"
+      - "Firewall Hint: {{ 'Connection Reset detected. Likely blocked by Firewall/DPI.' if (final_check.msg is defined and 'reset' in final_check.msg) else 'N/A' }}"
+
+# --- 6. MERGED ABORT LOGIC ---
+
+- name: "Abort if URL is invalid or unreachable"
+  ansible.builtin.fail:
+    msg: >-
+      {{
+        'The input URL [' + firefox_download_url + '] is neither a Mozilla API nor a valid .exe link.'
+        if (not is_mozilla_api and not is_direct_exe)
+        else 'The resolved URL [' + (firefox_url | default('N/A')) + '] is unreachable. Reason: ' + (final_check.msg | default('Unknown error'))
+      }}
+  when: >
+    (not is_mozilla_api and not is_direct_exe) or 
+    (firefox_url is defined and (final_check.status is not defined or final_check.status != 200))
+
