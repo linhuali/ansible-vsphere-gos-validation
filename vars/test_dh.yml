@@ -1,0 +1,146 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+#####################################
+# Testbed parameters
+#####################################
+
+# For Desktop Hypervisor host machine
+# Set below parameters for the existing host machine IP address or hostname,
+# Linux SSH or Windows WinRM username and password.
+# These 3 parameters take precedence over below virtual machine as the host machine configuration in vars/test.yml.
+#
+host_machine_hostname: ""
+host_machine_username: ""
+host_machine_password: ""
+
+# For Linux host, set the installed Python3 path if it's path can not be found automatically in Ansible.
+# host_machine_python: ""
+
+# Set the OS type of existing host machine, valid values are "windows" or "linux".
+host_machine_type: "windows"
+
+# WS build from main branch need enabled test-signing,this applies to windows host only.
+host_machine_testsigning: true
+
+# Note:
+# If you want to use existing or new deployed virtual machine as the host machine, set below parameters
+# in vars/test.yml file.
+# (Optional) vcenter_hostname, vcenter_username, vcenter_password, datacenter.
+# (Required) esxi_hostname, esxi_username, esxi_password, validate_certs.
+# vm_name, vm_username, vm_password, vm_folder, datastore, guest_id.
+# And parameters defined under first test case "1. deploy_vm" in "Test cases parameters" part.
+
+# For Workstation installation
+# Refer to this page https://www.vmware.com/asean/products/workstation-pro/workstation-pro-evaluation.html
+#
+# 'workstation_package_checksum' is the checksum of the Workstation installation package file, please set in the format
+# 'md5:xxxxxxxxx', 'sha256:xxxxxxxxxx', which will be checked after file downloading if set.
+#
+workstation_download_url: "https://www.vmware.com/go/getworkstation-win"
+workstation_install_path: ""
+# workstation_package_checksum: "md5:xxxxxxxxxx"
+workstation_serial_number: ""
+# When Workstation is already installed in host machine, if below parameter is set to true, will uninstall and
+# reinstall Workstation, if set to false, will use the existing installed Workstation for testing.
+update_workstation: false
+
+#####################################
+# VM parameters
+#####################################
+
+# For virtual machine deployed on Workstation
+#
+dh_vm_name: "test_vm"
+dh_vm_deploy_method: "iso"
+dh_vm_username: "test"
+dh_vm_password: ""
+dh_vm_hardware_version: ""
+dh_vm_guest_id: "windows9-64"
+dh_vm_path: ""
+dh_vm_firmware: "efi"
+dh_vm_secureboot_enabled: false
+dh_vm_vbs_enabled: false
+dh_vm_memory_mb: 2048
+dh_vm_cpu_number: 2
+dh_vm_cpu_cores_per_socket: 1
+# Boot disk controller type valid values: 'pvscsi', 'lsilogic', 'buslogic', 'lsilogicsas', 'nvme', 'sata' or 'ide'.
+dh_vm_boot_disk_controller: "nvme"
+dh_vm_boot_disk_size_gb: 60
+# Disk types IDs listed in vmware-vdiskmanager tool helper:
+# 0: single growable virtual disk
+# 1: growable virtual disk split into multiple files
+# 2: preallocated virtual disk
+# 3: preallocated virtual disk split into multiple files
+# 4: preallocated ESX-type virtual disk
+# 5: compressed disk optimized for streaming
+# 6: thin provisioned virtual disk - ESX 3.x and above
+# While on Workstation UI when creating a new VM, only disk types '0', '1' are available for selecting.
+dh_vm_boot_disk_type_id: 1
+dh_vm_network_adapter: "e1000e"
+# CDROM controller type valid values: 'sata', 'ide', 'scsi'.
+dh_vm_cdrom_controller: "sata"
+
+# These 2 optional parameters are used for configuring VM to enable VNC server. VNC server port range is from 5901 to 6001.
+# If not specified, will pickup an used TCP port starting from 5901.
+# dh_vm_vnc_port: ""
+# dh_vm_vnc_password: ""
+
+#####################################
+# Test cases parameters
+#####################################
+
+# 1. deploy_vm: 
+# For guest OS installed in VM on Workstation
+#
+dh_new_vm: true
+
+# For mounting NFS datastore to access OS installation ISO images in host machine, set parameter 'iso_nfs_server_path' to the
+# share folder path to be mounted in host machine.
+# For Windows host machine, set it in this format "\\\\192.168.1.10\\Images",
+# for Linux host machine, set it in this format "192.168.1.10:/Images".
+# Otherwise, please comment it out or set it to empty string ''.
+# iso_nfs_server_path: "\\\\192.168.1.10\\Images"
+
+# Set parameter 'dh_guest_iso_path' in these 3 situations:
+# (1) if parameter 'iso_nfs_server_path' is configured, set 'dh_guest_iso_path' to the ISO file relative path to the mounted directory.
+# For Windows host machine, set it in this format "OS\\Windows\\Windows10\\windows.iso",
+# for Linux host machine, set it in this format "OS/Linux/rhel9/rhel.iso". 
+# (2) if OS installation ISO image is on the host machine, comment out parameter 'iso_nfs_server_path', or set it to empty string '',
+# set parameter 'dh_guest_iso_path' to the ISO file absolute path on host machine, e.g., "C:\\Users\\test\\Downloads\\windows.iso".
+# (3) if use host VM CDROM connected ISO image for guest OS install, comment out parameter 'iso_nfs_server_path', or set it to
+# empty string '', set parameter 'dh_guest_iso_path' to the file path in ESXi host datastore in this format
+# '[datastore] files/test.iso', which will be connected to the host VM CDROM in testing.
+dh_guest_iso_path: "OS\\Windows\\Windows10\\windows.iso"
+
+# For Windows host mounting NFS datastore only:
+# If parameters 'iso_nfs_server_username' and 'iso_nfs_server_password' are not set, will enable
+# "insecure guest logons" in Windows host machine or host VM to mount 'iso_nfs_server_path' without credentials.
+# While this is not recommended, please refer to
+# https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/guest-access-in-smb2-is-disabled-by-default
+# iso_nfs_server_username: ""
+# iso_nfs_server_password: ""
+
+# Http Server path for download ISO, used for Workstation
+# If parameter 'iso_http_server_path' is configured, http download ISO to host will be enabled.
+# iso_http_server_path+dh_guest_iso_path should be the full URL of the ISO.
+iso_http_server_path: "http://mycompany.com/iso-images/"
+
+dh_guest_unattend_install_conf: "Windows/win10/efi/dh_Autounattend.xml"
+dh_guest_windows_has_inbox_driver: false
+dh_guest_windows_product_key: ""
+# Each retry take 5 minutes
+dh_guest_getip_retry_times: 10
+
+# Update VMware Tools or open-vm-tools in Guest
+dh_update_vmtools: true
+# Install VMware Tools from the downloaded ISO file for Windows
+dh_vmtools_url_path: "https://packages.vmware.com/tools/releases/12.5.0/windows/VMware-tools-windows-12.5.0-24276846.iso"
+# Install open-vm-tools for Linux
+dh_linux_ovt_install_type: package
+dh_linux_ovt_repo_url: "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os"
+
+# URL of guest ovf
+dh_guest_ovf_url: ""
+# Remove the vm deployed by dh_guest_ovf_url to save disk when dh_cleanup_ovf is true.
+dh_cleanup_ovf: true

@@ -1,0 +1,14 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get guest information collected by VMTools
+- name: "Get the detailed data on Linux Host"
+  ansible.builtin.shell: |
+    {{ dh_host_vmrun_path }} -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} readVariable {{ dh_vm_vmx_path }} runtimeConfig guestInfo.detailed.data
+  register: vm_guestinfo
+  delegate_to: "{{ host_machine_hostname }}"
+  become: true
+  become_user: "{{ dh_vm_username }}"
+
+- name: "Print VM guest info"
+  ansible.builtin.debug: var=vm_guestinfo

@@ -1,0 +1,60 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Initialize Workstation info"
+  ansible.builtin.set_fact:
+    workstation_hostname: "{{ host_machine_hostname }}"
+    workstation_version: 'N/A'
+    workstation_build: 'N/A'
+
+- name: "Get Workstation info from workstation_download_url"
+  when: workstation_download_url is defined and workstation_download_url
+  block:
+    - name: "Initialize the facts of Workstation installation file"
+      ansible.builtin.set_fact:
+        ws_install_file_name: "{{ workstation_download_url | ansible.builtin.basename }}"
+    - name: "Set the facts of Workstation build and version"
+      ansible.builtin.set_fact:
+        workstation_version: "{{ ws_install_file_name | regex_search('([0-9]+\\.){2}[0-9]+|e\\.x\\.p') }}"
+        workstation_build: "{{ ws_install_file_name.split('-')[4] | regex_search('[0-9]+') }}"
+
+- name: "Get Workstation info from Host"
+  when: workstation_download_url is undefined or not workstation_download_url
+  block:
+    - name: "Get Workstation build and version from Linux Host"
+      when: host_machine_type == "linux"
+      block:
+        - name: "Get Workstation daemon version"
+          ansible.builtin.command: "vmware -v"
+          register: ws_version
+          delegate_to: "{{ host_machine_hostname }}"
+        - name: "Set Workstation info from {{ ws_version.stdout }}"
+          ansible.builtin.set_fact:
+            workstation_version: "{{ ws_version.stdout.split(' ')[2] | regex_search('([0-9]+\\.){2}[0-9]+|e\\.x\\.p') }}"
+            workstation_build: "{{ ws_version.stdout.split()[-1] | regex_search('[0-9]+') }}"
+
+    - name: "Get Workstation build and version from Windows Host"
+      when: host_machine_type == "windows"
+      block:
+        - name: "Set fact of Workstation installed path"
+          ansible.builtin.set_fact:
+            workstation_install_path: 'C:\\Program Files (x86)\\VMware\\VMware Workstation'
+          when: workstation_install_path is undefined or not workstation_install_path
+        - name: "Get VM status"
+          include_tasks: ../../windows/utils/win_execute_cmd.yml
+          vars:
+            win_powershell_cmd: >-
+              Start-Process -FilePath "{{ workstation_install_path }}\\vmware-authd" -ArgumentList "-v" -NoNewWindow
+            vm_guest_ip: "{{ host_machine_hostname }}"
+        - name: "Set Workstation info from {{ ws_version.stdout }}"
+          ansible.builtin.set_fact:
+            workstation_version: "{{ win_powershell_cmd_output.stdout.split(' ')[-2] | regex_search('([0-9]+\\.){2}[0-9]+|e\\.x\\.p') }}"
+            workstation_build: "{{ win_powershell_cmd_output.stdout.split()[-1] | regex_search('[0-9]+') }}"
+
+# This debug info is for log plugin to get Workstation info
+- name: "Print Workstation hostname"
+  ansible.builtin.debug: var=workstation_hostname
+- name: "Print Workstation version"
+  ansible.builtin.debug: var=workstation_version
+- name: "Print Workstation build"
+  ansible.builtin.debug: var=workstation_build

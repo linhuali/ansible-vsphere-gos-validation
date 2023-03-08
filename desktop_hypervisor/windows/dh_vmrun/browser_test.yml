@@ -1,0 +1,88 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+#
+# Using vmrun to install choco and firefox
+# Open www.vmware.com with firefox
+# See more example of vmrun in
+# https://docs.vmware.com/en/VMware-Fusion/13/com.vmware.fusion.using.doc/GUID-FF306A59-080E-497E-857D-F45125927FB3.html
+#
+- name: "Initialize facts for powershell_path"
+  ansible.builtin.set_fact:
+    powershell_path: 'C:\windows\system32\WindowsPowerShell\v1.0\powershell.exe'
+
+- name: "Initialize facts for vmrun_with_powershell"
+  ansible.builtin.set_fact:
+    vmrun_with_powershell: '"{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} runProgramInGuest "{{ dh_vm_vmx_path }}" -activeWindow {{ powershell_path }}'
+
+- name: "Initialize facts for firefox_url in {{ dh_guest_id }}"
+  when: dh_guest_id is not match('windows(7|8).*')
+  ansible.builtin.set_fact:
+    firefox_url: 'https://download.mozilla.org/?product=firefox-latest&os=win&lang=en-US'
+
+- name: "Initialize facts for firefox_url in {{ dh_guest_id }}"
+  when: dh_guest_id is match('windows(7|8).*')
+  ansible.builtin.set_fact:
+    firefox_url: 'https://download.mozilla.org/?product=firefox-115.0.3-ssl&os=win&lang=en-US'
+
+- name: "Download firefox in Windows host"
+  block:
+    - name: "Set firefox local path in Windows host"
+      ansible.builtin.set_fact:
+        firefox_local_path: "{{ dh_host_download_path }}\\FirefoxSetup.exe"
+    - name: "Download Firefox installation file in Windows host"
+      ansible.windows.win_get_url:
+        url: "{{ firefox_url }}"
+        dest: "{{ firefox_local_path }}"
+        validate_certs: false
+        url_timeout: 180
+      delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Copy firefox setup.exe from host to guest with vmrun"
+  ansible.windows.win_command:
+    cmd: '"{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} copyFileFromHostToGuest "{{ dh_vm_vmx_path }}" {{ firefox_local_path }} {{ firefox_local_path }}'
+  delegate_to: "{{ host_machine_hostname }}"
+  async: 300
+  poll: 60
+
+- name: "Initialize facts for powershell_cmd"
+  ansible.builtin.set_fact:
+    powershell_cmd: "Start-Process -FilePath '{{ firefox_local_path }}' -ArgumentList '/S' -Wait"
+
+- name: "Install firefox in guest with vmrun"
+  ansible.windows.win_command:
+    cmd: '{{ vmrun_with_powershell }} {{ powershell_cmd }}'
+  delegate_to: "{{ host_machine_hostname }}"
+  async: 300
+  poll: 60
+
+- name: "Initialize facts for vmrun_with_powershell and powershell_cmd"
+  ansible.builtin.set_fact:
+    # add -interactive for firefox windows
+    vmrun_with_powershell: '"{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} runProgramInGuest "{{ dh_vm_vmx_path }}" -activeWindow -interactive {{ powershell_path }}'
+    powershell_cmd: "[System.Diagnostics.Process]::Start('firefox','https://www.vmware.com')"
+
+- name: "Open www.vmware.com with firefox"
+  ansible.windows.win_command:
+    cmd: '{{ vmrun_with_powershell}} {{ powershell_cmd }}'
+  delegate_to: "{{ host_machine_hostname }}"
+  register: vmrun_result
+  failed_when:
+    - vmrun_result.stderr is defined
+    - vmrun_result.stderr | length != 0
+    - "'Error' in vmrun_result.stderr"
+
+- name: "Pause 10 seconds"
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: "Get VNC port"
+  ansible.windows.win_command:
+    cmd: '"{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} readVariable "{{ dh_vm_vmx_path }}" runtimeConfig remotedisplay.vnc.port'
+  register: vnc_port
+  delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Take a VM screenshot after browser test"
+  include_tasks: ../../common/dh_vm_take_screenshot.yml
+  vars:
+    screenshot_name: "browser_test"

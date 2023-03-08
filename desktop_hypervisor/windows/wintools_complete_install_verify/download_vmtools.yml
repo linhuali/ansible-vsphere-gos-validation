@@ -1,0 +1,43 @@
+# Copyright 2021-2024 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Initialize the facts of VMware tools ISO file"
+  ansible.builtin.set_fact:
+    vmtools_file_name: "{{ dh_vmtools_url_path | ansible.builtin.basename }}"
+
+- name: "Check VMware tools file name"
+  ansible.builtin.assert:
+    that:
+      - vmtools_file_name
+      - vmtools_file_name.split('.')[-1] | lower == "iso"
+    fail_msg: "Get VMware Tools file name '{{ vmtools_file_name }}' from configured URL '{{ dh_vmtools_url_path }}', file suffix is not 'iso' for Windows host."
+
+- name: "Set fact of VMware tools file download path and log path"
+  ansible.builtin.set_fact:
+    dh_vm_tools_path: "{{ dh_host_download_path }}{{ vmtools_file_name }}"
+
+- name: "Download VMware tools file in Windows host"
+  ansible.windows.win_get_url:
+    url: "{{ dh_vmtools_url_path }}"
+    dest: "{{ dh_vm_tools_path }}"
+    checksum: "{{ vmtools_package_checksum | default(omit) }}"
+    validate_certs: false
+  delegate_to: "{{ host_machine_hostname }}"
+  register: download_ws_result
+- name: "Display the download result"
+  ansible.builtin.debug: var=download_ws_result
+
+- name: "Check downloading VMware tools file succeed"
+  ansible.builtin.assert:
+    that:
+      - download_ws_result.status_code is defined
+      - download_ws_result.status_code == 200
+      - download_ws_result.dest is defined
+      - download_ws_result.dest == dh_vm_tools_path
+    fail_msg: "Downloading VMware tools file result status code '{{ download_ws_result.status_code | default('') }}' is not 200, or file dest '{{ download_ws_result.dest | default('') }}' is not expected '{{ dh_vm_tools_path }}'."
+
+- name: "Display downloaded VMware tools file info"
+  ansible.builtin.debug:
+    msg:
+      - "Downloaded Workstation installation file name: {{ vmtools_file_name }}"
+      - "Downloaded Workstation installation file path: {{ dh_vm_tools_path }}"

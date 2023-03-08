@@ -1,0 +1,53 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Set VM default or preferred configurations if corresponding parameters
+# are not set in vars file.
+- name: "Set VM firmware to EFI"
+  when: dh_vm_firmware is undefined or not dh_vm_firmware
+  ansible.builtin.set_fact:
+    dh_vm_firmware: 'efi'
+
+- name: "Set VM secure boot status"
+  when:
+    - dh_vm_secureboot_enabled is undefined
+    - dh_vm_firmware | lower == 'efi'
+  ansible.builtin.set_fact:
+    dh_vm_secureboot_enabled: "False"
+
+- name: "Set VM CPU number"
+  when: dh_vm_cpu_number is undefined or not dh_vm_cpu_number
+  ansible.builtin.set_fact:
+    dh_vm_cpu_number: 2
+
+- name: "Set VM CPU cores per socket number"
+  when: dh_vm_cpu_cores_per_socket is undefined or not dh_vm_cpu_cores_per_socket
+  ansible.builtin.set_fact:
+    dh_vm_cpu_cores_per_socket: 1 
+
+- name: "Set VM memory size in MB"
+  when: dh_vm_memory_mb is undefined or not dh_vm_memory_mb
+  ansible.builtin.set_fact:
+    dh_vm_memory_mb: 2048
+
+- name: "Set VM disk size in GB"
+  when: dh_vm_boot_disk_size_gb is undefined or not dh_vm_boot_disk_size_gb
+  ansible.builtin.set_fact:
+    dh_vm_boot_disk_size_gb: 60
+
+- name: "Set VM disk size to 64GB for Windows 11"
+  when:
+    - dh_vm_boot_disk_size_gb | int < 64
+    - dh_vm_guest_id == "windows11-64"
+  ansible.builtin.set_fact:
+    dh_vm_boot_disk_size_gb: 64
+
+- name: "Set fact of VM boot disk controller type"
+  when: dh_vm_boot_disk_controller is undefined or not dh_vm_boot_disk_controller
+  ansible.builtin.set_fact:
+    dh_vm_network_adapter: "nvme"
+
+- name: "Set fact of VM network adapter type"
+  when: dh_vm_network_adapter is undefined or not dh_vm_network_adapter
+  ansible.builtin.set_fact:
+    dh_vm_network_adapter: "e1000e"

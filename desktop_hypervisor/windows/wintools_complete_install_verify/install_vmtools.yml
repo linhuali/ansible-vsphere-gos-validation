@@ -1,0 +1,92 @@
+# Copyright 2021-2024 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Uninstall VMware Tools firstly when it's installed"
+  include_tasks: uninstall_vmtools.yml
+  when:
+    - dh_update_vmtools | bool
+    - vmtools_is_installed
+
+- name: "Enable test signing"
+  include_tasks: enable_test_signing.yml
+  when:
+    - is_development_tools is defined
+    - is_development_tools | bool
+
+- name: "Get the files in the VMware Tools install ISO mounted path"
+  include_tasks: ../../../windows/utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: "Get-childitem -path D:\\ -name"
+
+- name: "Set fact of the files list"
+  ansible.builtin.set_fact:
+    win_files_vmtools_iso: "{{ win_powershell_cmd_output.stdout_lines | default([]) }}"
+
+- name: "Set fact of VMware Tools setup file"
+  ansible.builtin.set_fact:
+    wintools_setup_exe: |-
+      {%- if guest_os_ansible_architecture == "64-bit" and 'setup64.exe' in win_files_vmtools_iso -%}setup64.exe
+      {%- elif 'setup.exe' in win_files_vmtools_iso -%}setup.exe
+      {%- endif -%}
+
+- name: "Set fact of VMware Tools silent install command and getting install log file"
+  ansible.builtin.set_fact:
+    vmtools_install_cmd: "D:\\{{ wintools_setup_exe }} /s /v ADDLOCAL=ALL /qn REBOOT=R"
+    get_vmtools_install_log: true
+
+# In Windows Server 2012 R2 guest OS, need to set 'become' to run
+# VMware Tools install command
+- name: "Execute VMware Tools silent install command in guest"
+  ansible.windows.win_shell: "{{ vmtools_install_cmd }}"
+  delegate_to: "{{ vm_guest_ip }}"
+  ignore_errors: true
+  become: "{{ win_execute_cmd_become | default(false) }}"
+  become_method: runas
+  become_user: "{{ win_execute_cmd_become_user | default('Administrator') }}"
+  register: wintools_install_result
+  async: 600
+  poll: 60
+#  environment:
+#    ANSIBLE_WIN_ASYNC_STARTUP_TIMEOUT: 300
+- name: "Pause 3 minutes before checking task status"
+  ansible.builtin.pause:
+    minutes: 3
+#- name: "Check VMware Tools install task started"
+#  ansible.builtin.assert:
+#    that:
+#      - wintools_install_result is defined
+#      - wintools_install_result.ansible_job_id is defined
+#    fail_msg: >-
+#      The async task of VMware Tools installation in guest OS is not started.
+#      Task returned message: {{ wintools_install_result.msg | default('') }}.
+
+#- name: "Check VMware Tools install task status every 3 seconds"
+#  ansible.builtin.async_status:
+#    jid: "{{ wintools_install_result.ansible_job_id }}"
+#  register: wintools_install_job
+#  delegate_to: "{{ vm_guest_ip }}"
+#  until:
+#    - wintools_install_job.finished is defined
+#    - wintools_install_job.finished
+#  retries: 100
+#  delay: 3
+#  when:
+#    - wintools_install_result is defined
+#    - wintools_install_result.ansible_job_id is defined
+
+- name: "Power on VM to do Windows automatic install"
+  include_tasks: ../../common/dh_host_power_vm.yml
+  vars:
+    vm_power_option: "stop"
+- name: "Pause 30 seconds after VMware Tools install"
+  ansible.builtin.pause:
+    seconds: 30
+- name: "Power on VM to do Windows automatic install"
+  include_tasks: ../../common/dh_host_power_vm.yml
+  vars:
+    vm_power_option: "start"
+- name: "Pause 30 seconds after restart"
+  ansible.builtin.pause:
+    seconds: 30
+- name: "Get VMTools version"
+  include_tasks: ../../common/dh_get_guest_vmtools.yml

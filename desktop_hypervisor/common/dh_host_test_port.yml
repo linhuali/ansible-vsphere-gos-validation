@@ -1,0 +1,66 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Test net connection on specific port on Windows host
+# Parameters:
+#   dh_host_port: the port number to get connection status
+#
+- name: "Check required parameter"
+  ansible.builtin.assert:
+    that:
+      - dh_host_port is defined
+    fail_msg: "Parameter 'dh_host_port' is required to be set in this task: {{ dh_host_port | default('') }}"
+
+- name: "Initialize the tested port state"
+  ansible.builtin.set_fact:
+    dh_host_port_open: 'NA'
+
+- name: "Test net connection on Windows host"
+  when: host_machine_type == "windows"
+  block:
+    - name: "Test connection on port {{ dh_host_port }}"
+      include_tasks: ../../windows/utils/win_execute_cmd.yml
+      vars:
+        win_powershell_cmd: "(Test-NetConnection -Port {{ dh_host_port }} -Computer localhost).TcpTestSucceeded"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+        win_execute_cmd_ignore_error: true
+
+    - name: "Set fact of the tested port state"
+      when:
+        - win_powershell_cmd_output.rc is defined
+        - win_powershell_cmd_output.rc == 0
+        - win_powershell_cmd_output.stdout_lines is defined
+        - win_powershell_cmd_output.stdout_lines | length > 0
+      ansible.builtin.set_fact:
+        dh_host_port_open: "{{ win_powershell_cmd_output.stdout_lines[0] }}"
+
+- name: "Test net connection on Linux host"
+  when: host_machine_type == "linux"
+  block:
+    - name: "Test connection on port {{ dh_host_port }}"
+      ansible.builtin.shell: |
+        if [ -z `sudo lsof -i:{{ dh_host_port }}` ]; then 
+          echo "False"
+        else 
+          echo "True"
+        fi
+      delegate_to: "{{ host_machine_hostname }}"
+      register: lin_shell_cmd_result
+    - name: "Set fact of the tested port state"
+      when:
+        - lin_shell_cmd_result.rc is defined
+        - lin_shell_cmd_result.rc == 0
+        - lin_shell_cmd_result.stdout_lines is defined
+        - lin_shell_cmd_result.stdout_lines | length > 0
+      ansible.builtin.set_fact:
+        dh_host_port_open: "{{ lin_shell_cmd_result.stdout_lines[0] }}"
+
+- name: "Display the test connection result for port {{ dh_host_port }}"
+  ansible.builtin.debug: var=dh_host_port_open
+
+- name: "Set fact of unused port"
+  when:
+    - dh_host_port_open != 'NA'
+    - not dh_host_port_open
+  ansible.builtin.set_fact:
+    get_unused_port: "{{ dh_host_port }}"

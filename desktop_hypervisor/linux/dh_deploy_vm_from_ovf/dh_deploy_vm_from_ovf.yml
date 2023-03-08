@@ -1,0 +1,65 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Description:
+#   This test case is used for installing Workstation in Linux or Windows machine.
+#
+- name: dh_deploy_vm_from_ovf
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: "Test case block"
+      block:
+        - name: "Test case is not supported"
+          include_tasks: ../../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Required parameter 'dh_guest_ovf_url' is not defined to be a valid value: '{{ dh_guest_ovf_url | default('') }}'"
+            skip_reason: "Not Supported"
+          when: dh_guest_ovf_url is undefined or not dh_guest_ovf_url
+
+        - name: "Skip test case"
+          include_tasks: ../../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Skip test case due to dh_guest_ovf_url is not an ovf or ova, this url is: {{ dh_guest_ovf_url | default('') }}."
+            skip_reason: "Not Supported"
+          when:
+            - dh_guest_ovf_url is defined
+            - dh_guest_ovf_url is not match('.*ov(f|a)')
+
+        - name: "Reset the dh_vm_deploy_method per {{ dh_guest_ovf_url }}"
+          ansible.builtin.set_fact:
+            dh_vm_deploy_method: "{{ dh_guest_ovf_url.split('.')[-1] }}"
+          when:
+            - dh_guest_ovf_url is defined
+            - dh_guest_ovf_url is match('.*.ov(f|a)')
+
+        #- name: "Initialize Desktop Hypervisor install status and installed path"
+        #  ansible.builtin.set_fact:
+        #    dh_host_installed: true
+        #    dh_host_installed_path: '/usr/bin/vmware'
+        #    #dh_vm_deploy_method: ovf
+        - name: "Test setup"
+          include_tasks: ../../common/dh_test_setup.yml
+          vars:
+            create_dh_test_folder: true
+
+        - name: "Extract OVF and open VM in Linux host"
+          when:
+            - dh_guest_ovf_url is defined
+            - dh_guest_ovf_url is match('.*.ov(f|a)')
+          block:
+            - name: "Check Guest VM and remove if it exists"
+              include_tasks: ../../common/check_remove_vm.yml
+            - name: "Extract ovf from {{ dh_guest_ovf_url }}"
+              include_tasks: ../../common/extract_image.yml
+              vars:
+                dh_guest_image_path: "{{ dh_guest_ovf_url }}"
+            - name: "Open Guest VM in Workstation"
+              include_tasks: deploy_ovf.yml
+
+      rescue:
+        - name: "Test case failure"
+          include_tasks: ../../../common/test_rescue.yml
+          vars:
+            exit_testing_when_fail: true
+          #when: is_vsphere_env

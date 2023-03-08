@@ -1,0 +1,309 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Initialize undefined variables
+- name: "Initialize variables for new VM settings"
+  ansible.builtin.set_fact:
+    boot_disk_controller: "{{ dh_vm_boot_disk_controller | lower if (dh_vm_boot_disk_controller is defined and dh_vm_boot_disk_controller) else 'paravirtual' }}"
+    firmware: "{{ dh_vm_firmware if (dh_vm_firmware | lower is defined and dh_vm_firmware) else 'efi' }}"
+    network_adapter_type: "{{ dh_vm_network_adapter | lower if (dh_vm_network_adapter is defined and dh_vm_network_adapter) else 'vmxnet3' }}"
+    guest_id: "{{ dh_vm_guest_id }}"
+    autoinstall_start_msg: ""
+    autoinstall_ipv4_msg: ""
+    autoinstall_complete_msg: "Autoinstall is completed."
+
+- name: "Set fact of the timestamp"
+  ansible.builtin.set_fact:
+    iso_timestamp: "{{ lookup('pipe','date +%s') }}"
+
+- name: "Set facts of VM files paths"
+  ansible.builtin.set_fact:
+    dh_vm_boot_disk_file: "{{ dh_vm_new_name }}.vmdk"
+    dh_vm_vmx_file_local: "{{ current_test_log_folder }}/{{ dh_vm_new_name }}.vmx"
+- name: "Set facts of VM disk files path"
+  ansible.builtin.set_fact:
+    dh_vm_boot_disk_file_path: "{{ dh_vm_path }}/{{ dh_vm_new_name }}.vmdk"
+- name: "Set default serial port output file"
+  ansible.builtin.set_fact:
+    vm_serial_port_output_file: "serial-{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log"
+- name: "Set default serial port output file path"
+  ansible.builtin.set_fact:
+    vm_serial_port_file_path: "{{ dh_vm_path }}/{{ vm_serial_port_output_file }}"
+
+- name: "Prepare guest OS guest ID in vmx file"
+  include_tasks: ../../common/handle_dh_vm_guest_id.yml
+
+- name: "Prepare for Ubuntu installation"
+  when: dh_vm_guest_id is match('ubuntu.*')
+  include_tasks: ../../../linux/deploy_vm/ubuntu/prepare_ubuntu_iso_install.yml
+
+- name: "Prepare OS install ISO file"
+  include_tasks: set_gos_iso_path.yml
+
+# Prepare VM folder
+- name: "Create new folder for VM in Linux host"
+  ansible.builtin.shell: |
+    if [ -d {{ dh_vm_path }} ]; then rm -rf {{ dh_vm_path }}; fi
+    mkdir -p {{ dh_vm_path }}
+  delegate_to: "{{ host_machine_hostname }}"
+  register: shell_mkdir_result
+  failed_when:
+    - shell_mkdir_result.stderr is defined
+    - shell_mkdir_result.stderr
+# Prepare Autounattend ISO file
+- name: "Set fact of Autounattend ISO file name"
+  when:
+    - dh_guest_unattend_install_conf is not match('Ubuntu/Server/')
+    - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Subiquity')
+  ansible.builtin.set_fact:
+    unattend_install_iso: "{{ guest_id }}{{ '_'.join(''.join(dh_guest_unattend_install_conf.split('.')[:-1]).split('/')) }}-{{ current_test_timestamp }}.iso"
+    #unattend_install_iso: "{{ dh_vm_guest_id }}-{{ dh_vm_firmware }}-{{ dh_vm_boot_disk_controller }}-{{ iso_timestamp }}.iso"
+- name: "Set fact of Autounattend ISO file name"
+  when: >
+    dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
+    dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
+  ansible.builtin.set_fact:
+    unattend_install_iso: "seed.iso"
+- name: "Set fact of target Autounattend ISO file path"
+  ansible.builtin.set_fact:
+    dh_vm_unattend_iso_path: "{{ dh_vm_path }}/{{ unattend_install_iso }}"
+
+- name: "Test case block"
+  block:
+    - name: "Check dh_guest_unattend_install_conf"
+      when: dh_guest_unattend_install_conf is undefined or not dh_guest_unattend_install_conf
+      ansible.builtin.debug:
+        msg: "dh_guest_unattend_install_conf is not defined or set to a file path, will not generate unattend iso file"
+
+    - name: "Generate unattend install iso file"
+      when: dh_guest_unattend_install_conf is defined and dh_guest_unattend_install_conf
+      include_tasks: ../../../linux/deploy_vm/create_unattend_install_iso.yml
+      vars:
+        #guest_id: "{{ dh_vm_guest_id }}"
+        unattend_install_conf: "{{ dh_guest_unattend_install_conf }}"
+        vm_username: "{{ dh_vm_username }}"
+        vm_password: "{{ dh_vm_password }}"
+        os_install_iso_list_len: 1
+
+    - name: "Copy unattend install iso to Linux host and remove it from datastore"
+      when: is_vsphere_env
+      block:
+        - name: "Copy Autounattend install ISO to Linux host"
+          include_tasks: ../../../common/transfer_file_remote.yml
+          vars:
+            transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ unattend_install_iso }}"
+            transfer_file_remote_dest: "{{ dh_vm_unattend_iso_path }}"
+            transfer_file_remote_server: "{{ host_machine_hostname }}"
+            transfer_file_remote_mode: "0777"
+        - name: "Remove unattend install iso from datastore"
+          include_tasks: ../../../common/esxi_check_delete_datastore_file.yml
+          vars:
+            file_in_datastore: "{{ datastore }}"
+            file_in_datastore_path: "{{ unattend_iso }}"
+            file_in_datastore_ops: "absent"
+            file_in_datastore_ignore_failed: true
+          with_items: "{{ transferred_unattend_iso_list }}"
+          loop_control:
+            loop_var: unattend_iso
+          when:
+            - transferred_unattend_iso_list is defined
+            - transferred_unattend_iso_list
+
+    # Prepare VNC server config
+    - name: "Set VNC server port when it's not configured"
+      #when: dh_vm_vnc_port is undefined
+      block:
+        - name: "Get VNC server port"
+          include_tasks: ../../common/dh_host_get_vnc_port.yml
+        - name: "Set fact of VNC server port"
+          ansible.builtin.set_fact:
+            dh_vm_vnc_port: "{{ vnc_server_port }}"
+
+    # Prepare vmdk file
+    - name: "Create VM disk file"
+      include_tasks: ../../common/lin_host_create_disk_file.yml
+      vars:
+        disk_file_size: "{{ dh_vm_boot_disk_size_gb }}GB"
+        disk_controller: "{{ dh_vm_boot_disk_controller }}"
+        disk_file_path: "{{ dh_vm_boot_disk_file_path }}"
+
+    # Prepare vmx file
+    - name: "Generate new VM vmx file according to the configuration"
+      ansible.builtin.template:
+        src: linux_vmx.template
+        dest: "{{ dh_vm_vmx_file_local }}"
+        mode: "0644"
+      register: gen_vm_vmx_file_result
+    - name: "Display the result of generating VM vmx file"
+      ansible.builtin.debug: var=gen_vm_vmx_file_result
+
+    - name: "set the iso path for Ubuntu Server / Ubuntu desktop 23.04 or later"
+      when: >
+        dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
+        dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
+      ansible.builtin.set_fact:
+        dh_guest_iso_path: "{{ dh_vm_path }}/{{ dh_guest_iso_file_name }}"
+
+    - name: "Add VM disk and CDROM config to vmx file"
+      when:
+        - dh_guest_unattend_install_conf is not match('Photon')
+        - dh_guest_unattend_install_conf is not match('Debian')
+        - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Ubiquity')
+        - dh_guest_unattend_install_conf is not match('FreeBSD')
+        - dh_guest_unattend_install_conf is not match('Pardus')
+      include_tasks: ../../common/set_disk_cdrom_in_vmx.yml
+
+    - name: "Add VM disk and replace CDROM config to vmx file"
+      when: >
+        dh_guest_unattend_install_conf is match('Photon') or
+        dh_guest_unattend_install_conf is match('Debian') or
+        dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Ubiquity') or
+        dh_guest_unattend_install_conf is match('FreeBSD') or
+        dh_guest_unattend_install_conf is match('Pardus')
+      include_tasks: ../../common/set_disk_cdrom_in_vmx.yml
+      vars:
+        dh_guest_iso_path: "{{ dh_vm_unattend_iso_path }}"
+        unattend_install_iso: "{{ dh_vm_unattend_iso_path }}"
+
+    - name: "Copy new VM vmx file from local to Linux host"
+      include_tasks: ../../../common/transfer_file_remote.yml
+      vars:
+        transfer_file_remote_src: "{{ dh_vm_vmx_file_local }}"
+        transfer_file_remote_dest: "{{ dh_vm_vmx_path }}"
+        transfer_file_remote_server: "{{ host_machine_hostname }}"
+        transfer_file_remote_mode: "0777"
+
+    - name: "Power on VM"
+      include_tasks: ../../common/dh_host_power_vm.yml
+      vars:
+        vm_power_option: "start"
+
+    - name: "Take screenshot and send keystrokes for non-ubuntu-server or 23.04+"
+      when:
+        - dh_guest_unattend_install_conf is not match('Ubuntu/Server/')
+        - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Subiquity')
+      block:
+        - name: "Take a VM screenshot after start"
+          include_tasks: ../../common/dh_vm_take_screenshot.yml
+          vars:
+            screenshot_name: "start"
+
+    - name: "Send keystrokes when VM firmware is EFI"
+      when: dh_vm_firmware | lower == 'efi'
+      block:
+        - name: "Send keystrokes for SLES 16"
+          ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} key down pause 3 key down pause 3 key enter pause 3 key down pause 2 key enter pause 5"
+          register: vncdo_send_keys
+          async: 300
+          poll: 60
+          when: unattend_installer == 'Agama'
+
+        - name: "Send keystrokes for other Linux"
+          ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} key down pause 3 key down pause 3 key enter pause 5"
+          register: vncdo_send_keys
+          async: 300
+          poll: 60
+
+    # For RHEL, CentOS, RockyLinux, OracleLinux, sendkey to boot screen to not do
+    # disk check and start installation directly. RockyLinux is using Other 4.x or
+    # later Linux (64-bit) as guest OS type.
+    - name: "Send keystrokes to boot screen"
+      when:
+        - dh_guest_unattend_install_conf is defined
+        - (('RHEL' in dh_guest_unattend_install_conf) or
+          ('CentOS' in dh_guest_unattend_install_conf) or
+          ('Fedora' in dh_guest_unattend_install_conf))
+      block:
+        - name: "Send up, enter keys"
+          ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} key up pause 3 key enter pause 3 key enter"
+          register: vncdo_send_keys
+          async: 300
+          poll: 60
+        - name: "Display the vncdotool sends keys result"
+          ansible.builtin.debug: var=vncdo_send_keys
+
+    #- name: "Install Ubuntu OS"
+    #  include_tasks: ../../../linux/deploy_vm/ubuntu/ubuntu_install_os.yml
+    - name: "Wait autoinstall start message appear in serial port output file"
+      when: >
+        dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
+        dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
+      include_tasks: ../../common/dh_host_get_log.yml
+      vars:
+        vm_wait_log_name: "{{ vm_serial_port_file_path }}"
+        vm_wait_log_msg: "{{ autoinstall_start_msg }}"
+        vm_wait_log_delay: 30
+        vm_wait_log_retries: 120
+
+    - name: "Wait autoinstall complete message appear in serial port output file"
+      include_tasks: ../../common/dh_host_get_log.yml
+      vars:
+        vm_wait_log_name: "{{ vm_serial_port_file_path }}"
+        vm_wait_log_msg: "{{ autoinstall_ipv4_msg }}[^\\r\\n]*"
+        vm_wait_log_delay: 30
+        vm_wait_log_retries: 300
+      when: autoinstall_ipv4_msg
+
+    - name: "Wait for IPv4 message appear in serial port output file"
+      include_tasks: ../../common/dh_host_get_log.yml
+      vars:
+        vm_wait_log_name: "{{ vm_serial_port_file_path }}"
+        vm_wait_log_msg: "{{ autoinstall_complete_msg }}"
+        vm_wait_log_delay: 30
+        vm_wait_log_retries: 300
+
+    - name: "Take a VM screenshot when autoinstall complete message is received"
+      include_tasks: ../../common/dh_vm_take_screenshot.yml
+      vars:
+        screenshot_name: "autoinstall"
+
+    - name: "Wait 60s after autoinstall completes"
+      ansible.builtin.pause:
+        seconds: 60
+
+    - name: "Get VM existence status"
+      include_tasks: ../../common/dh_host_check_vm_exists.yml
+    - name: "Set fact of VM existence status"
+      ansible.builtin.set_fact:
+        dh_vm_exists: "{{ dh_vm_check_exist }}"
+
+    - name: "Reset the vm config for ubuntu"
+      when: >
+        dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
+        dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
+      include_tasks: ../utils/reset_vm_config.yml
+
+    - name: "Power on VM"
+      when: not dh_vm_exists
+      include_tasks: ../../common/dh_host_power_vm.yml
+      vars:
+        vm_power_option: "start"
+    - name: "Reset guest OS"
+      when: dh_vm_exists
+      include_tasks: ../../common/dh_host_power_vm.yml
+      vars:
+        vm_power_option: "reset"
+        vmrun_extra_option: "hard"
+
+    - name: "Wait 60s for OS powered on"
+      ansible.builtin.pause:
+        seconds: 60
+
+    - name: "Get Guest VM IP"
+      include_tasks: ../../common/dh_host_get_guest_ip.yml
+
+    - name: "Get VMTools version"
+      include_tasks: ../../common/dh_get_guest_vmtools.yml
+
+    - name: "Get VM guest info including detailed data"
+      include_tasks: ../../common/dh_get_guest_info.yml
+  #rescue:
+  #  - include_tasks: ../../common/dh_test_rescue.yml
+  #    vars:
+  #      exit_testing_when_fail: true
+  always:
+    - name: "Get the serial log to local"
+      include_tasks: ../../common/dh_get_file.yml
+      vars:
+        file_src_path: "{{ vm_serial_port_file_path }}"
+        file_dst_path: "{{ current_test_log_folder }}"

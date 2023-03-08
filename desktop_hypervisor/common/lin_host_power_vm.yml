@@ -1,0 +1,50 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+# vmrun power operation in Linux host
+# Parameters:
+#   power_option: start, stop, reset, suspend, pause, unpause
+---
+- name: "Execute Workstation vmrun"
+  ansible.builtin.shell: |
+    vmrun -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} {{ power_option }} {{ dh_vm_vmx_path }} {{ extra_option }}
+  delegate_to: "{{ host_machine_hostname }}"
+  become: true
+  become_user: "{{ dh_vm_username }}"
+  register: ws_vmrun_power
+  async: 300
+  poll: 60
+ # failed_when:
+ #   - ws_vmrun_power.stdout_lines is defined
+ #   - ws_vmrun_power.stdout_lines | length != 0
+ #   - "'Error' in ws_vmrun_power.stdout_lines[0]"
+ #   - "'VMware Tools' not in ws_vmrun_power.stdout_lines[0]"
+
+- name: "Pause 90 seconds after {{ power_option }} VM"
+  when: >
+    power_option == "start" or
+    power_option == "reset"
+  ansible.builtin.pause:
+    seconds: 90
+
+- name: "Get VM status"
+  ansible.builtin.shell: |
+    vmrun -T ws list
+  delegate_to: "{{ host_machine_hostname }}"
+  become: true
+  become_user: "{{ dh_vm_username }}"
+  register: ws_vmrun_list
+  failed_when:
+    - ws_vmrun_list.stdout_lines is defined
+    - ws_vmrun_list.stdout_lines | length != 0
+    - "'Error' in ws_vmrun_list.stdout_lines[0]"
+
+- name: "Set fact of VM existence status"
+  when: dh_vm_vmx_path in ws_vmrun_list.stdout
+  ansible.builtin.set_fact:
+    dh_vm_exists: true
+
+- name: "Set fact of VM existence status"
+  when: dh_vm_vmx_path not in ws_vmrun_list.stdout
+  ansible.builtin.set_fact:
+    dh_vm_exists: false
+

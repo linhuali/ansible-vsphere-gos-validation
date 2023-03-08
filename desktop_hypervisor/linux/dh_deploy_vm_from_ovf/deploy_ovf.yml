@@ -1,0 +1,57 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+#- name: "Check the vmx file in Linux host"
+#  ansible.builtin.stat:
+#    path: "{{ dh_vm_vmx_path }}"
+#  register: stat_result
+#  ignore_errors: true
+#  delegate_to: "{{ host_machine_hostname }}"
+#  become: true
+#  become_user: "{{ dh_vm_username }}"
+#- name: "Set fact of VM vmx file existence status"
+#  ansible.builtin.set_fact:
+#    dh_guest_vm_extracted: "{{ stat_result.stat.exists | default(false) }}"
+
+- name: "Open Guest vm on {{ host_machine_hostname }}"
+  when: dh_guest_vm_extracted
+  block:
+    - name: "Update the vmx file extracted from ovf"
+      include_tasks: ../../common/set_vm_config.yml
+
+    - name: "Power on VM"
+      include_tasks: ../../common/dh_host_power_vm.yml
+      vars:
+        vm_power_option: "start"
+
+    - name: "Get VNC port"
+      ansible.builtin.shell: |
+        {{ dh_host_vmrun_path }} -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} readVariable {{ dh_vm_vmx_path }} runtimeConfig remotedisplay.vnc.port
+      register: vnc_port
+      delegate_to: "{{ host_machine_hostname }}"
+      become: true
+      become_user: "{{ dh_vm_username }}"
+
+    - name: "Take a VM screenshot after start"
+      ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ vnc_port.stdout_lines[0]}} capture {{ current_test_log_folder }}/vm_screenshot_after_start.png"
+      register: vncdo_take_screenshot
+      failed_when:
+        - vncdo_take_screenshot.stderr is defined
+        - "'refused' in vncdo_take_screenshot.stderr"
+    - name: "Display the vncdotool taking screenshot result"
+      ansible.builtin.debug: var=vncdo_take_screenshot
+
+    - name: "Get Guest VM IP"
+      include_tasks: ../../common/dh_host_get_guest_ip.yml
+
+    - name: "Stop Guest VM"
+      include_tasks: ../../common/dh_host_power_vm.yml
+      vars:
+        vm_power_option: "stop"
+
+    - name: "Remove OVF"
+      ansible.builtin.shell: |
+        if [ -d {{ dh_vm_path }} ]; then rm -rf {{ dh_vm_path }}; fi
+      register: remove_ovf_result
+      delegate_to: "{{ host_machine_hostname }}"
+      when: dh_cleanup_ovf is defined and dh_cleanup_ovf

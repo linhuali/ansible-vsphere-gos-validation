@@ -1,0 +1,34 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Description:
+# This test to check a browser can be opened in Guest VM.
+#
+- name: check_browser_in_guest
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: "Test case block"
+      block:
+        - name: "Test setup"
+          include_tasks: ../../common/dh_test_setup.yml
+          vars:
+            create_dh_test_folder: true
+            require_dh_vm_exists: "{{ true if (dh_new_vm is undefined or not dh_new_vm | bool) else false }}"
+
+        - name: "Make sure Guest VM is exists"
+          when: dh_new_vm is defined and dh_new_vm | bool
+          ansible.builtin.assert:
+            that:
+              - dh_vm_exists
+              - dh_vm_vmx_exists
+            fail_msg: "VM with path '{{ dh_vm_vmx_path }}' is not exists, please deploy vm first."
+
+        - name: "Run check browser test in Guest"
+          when: host_machine_type == "linux"
+          include_tasks: browser_test.yml
+      rescue:
+        - name: "Test case failure"
+          include_tasks: ../../common/dh_test_rescue.yml
+          vars:
+            exit_testing_when_fail: true

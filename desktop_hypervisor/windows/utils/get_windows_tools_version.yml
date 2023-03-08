@@ -1,0 +1,33 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Get the guestID"
+  when: dh_guest_id is undefined or not dh_guest_id
+  include_tasks: ../../common/dh_get_guestid.yml
+
+- name: "Initialize the file paths"
+  ansible.builtin.set_fact:
+    vmtools_cmd_path: "C:\\Program Files\\VMware\\VMware Tools\\VMwareToolboxCmd.exe"
+    vmtools_log_path: |-
+      {%- if dh_guest_id is match('winNet.*') -%}C:\\vmtools.txt
+      {%- else  -%}{{ dh_host_download_path }}vmtools.txt
+      {%- endif -%}
+
+- name: "Get vmtools info of guest"
+  ansible.windows.win_shell: |
+    Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} runScriptInGuest "{{ dh_vm_vmx_path }}" "" "cmd.exe /c \"{{ vmtools_cmd_path }}\" -v > \"{{ vmtools_log_path }}\""' -NoNewWindow
+    Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} CopyFileFromGuestToHost "{{ dh_vm_vmx_path }}" "{{ vmtools_log_path }}" "{{ vmtools_log_path }}"' -NoNewWindow
+    type "{{ vmtools_log_path }}"
+  register: vmtools_version_build
+  delay: 20
+  retries: "{{ shell_cmd_retry_times | default(5) }}"
+  until:
+    - vmtools_version_build is defined
+    - vmtools_version_build.stdout_lines is defined
+    - vmtools_version_build.stdout_lines | length != 0
+    - "'build' in vmtools_version_build.stdout_lines[0]"
+  ignore_errors: true
+  delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Print VMTools version and build"
+  ansible.builtin.debug: var=vmtools_version_build

@@ -1,0 +1,40 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Get guest information collected by VMTools
+- name: "Get the detailed data of guest on Windows Host"
+  when: host_machine_type == "windows"
+  include_tasks: ../windows/utils/get_windows_guest_info.yml
+
+- name: "Get the detailed data on Linux Host"
+  when: host_machine_type == "linux"
+  include_tasks: ../linux/utils/get_linux_guest_info.yml
+
+- name: "Initialize guest info variables"
+  ansible.builtin.set_fact:
+    guestinfo_guest_id: ''
+    guestinfo_guest_full_name: ''
+    guestinfo_guest_family: ''
+    guestinfo_detailed_data: ''
+    guestinfo_gathered: false
+    guestinfo_vmtools_info: ''
+
+- name: "Get guest info retrieved by VMware Tools"
+  ansible.builtin.set_fact:
+    guestinfo_detailed_data: "{{ vm_guestinfo.stdout_lines[0] | default('') }}"
+    guestinfo_vmtools_info: "{{ vmtools_info_from_vmtoolsd | default('') }}"
+    guestinfo_guest_id: "{{ dh_vm_guest_id | default('') }}"
+    vm_guest_id: "{{ dh_vm_guest_id | default('') }}"
+    vm_name: "{{ dh_vm_name | default('') }}"
+    vm_hardware_version: "{{ dh_vm_hardware_version | string }}"
+    guestinfo_gathered: true
+
+- name: "Display VM's guest info"
+  ansible.builtin.debug:
+    msg:
+      - "VM guest info VMware tools info: {{ guestinfo_vmtools_info }}"
+      - "VM guest info guest id: {{ guestinfo_guest_id }}"
+      - "VM guest info guest full name: {{ guestinfo_guest_full_name }}"
+      - "VM guest info guest family: {{ guestinfo_guest_family }}"
+      - "VM guest info guest detailed data: {{ guestinfo_detailed_data }}"
+      - "VM name: {{ vm_name }}"

@@ -239,7 +239,7 @@
 # Save the VM hardware info to json file
 - name: "Set fact of json file name for VM hardware configuration info"
   ansible.builtin.set_fact:
-    ovf_vm_hardware_config_file: "{{ ovf_vm_guest_os | regex_replace(' \\(.*\\)', '') | replace(' ', '-') }}-{{ ovf_vm_guest_bitness }}bit-ovf-config.json"
+    ovf_vm_hardware_config_file: "{{ ovf_vm_guest_os | regex_replace(' \\(.*\\)', '') | replace(' ', '-') | replace('/', '-') }}-{{ ovf_vm_guest_bitness }}bit-ovf-config.json"
   when:
     - ovf_vm_guest_os
     - ovf_vm_guest_os is not search('Windows')

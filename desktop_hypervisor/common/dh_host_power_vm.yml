@@ -1,0 +1,33 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+# vmrun power operation in Windows/Linux host
+# Parameters:
+#   vm_power_option: start, stop, reset, suspend, pause, unpause
+---
+- name: "Set fact of extra option"
+  when:
+    - vm_power_option == "start"
+  ansible.builtin.set_fact:
+    vm_extra_option: "nogui"
+
+- name: "Set fact of extra option"
+  when: vm_power_option != "start"
+  ansible.builtin.set_fact:
+    vm_extra_option: "{{ vmrun_extra_option | default('hard') }}"
+
+- name: "{{ vm_power_option }} VM on windows host"
+  when: host_machine_type == "windows"
+  include_tasks: win_host_power_vm.yml
+  vars:
+    power_option: "{{ vm_power_option }}"
+
+- name: "{{ vm_power_option }} VM on linux host"
+  when: host_machine_type == "linux"
+  include_tasks: lin_host_power_vm.yml
+  vars:
+    power_option: "{{ vm_power_option }}"
+    extra_option: "{{ vm_extra_option }}"
+
+- name: "Pause 30 seconds"
+  ansible.builtin.pause:
+    seconds: 30

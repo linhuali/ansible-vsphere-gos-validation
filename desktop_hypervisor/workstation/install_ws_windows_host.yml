@@ -1,0 +1,183 @@
+# Copyright 2023 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Enable Auto logon before host reboot"
+  include_tasks: ../common/win_host_enable_autologon.yml
+
+- name: "Enable TESTSIGNING on host and restart host"
+  when: host_machine_testsigning is defined and host_machine_testsigning
+  block:
+    - name: "Enable TESTSIGNING on host"
+      include_tasks: ../../windows/utils/win_execute_cmd.yml
+      vars:
+        win_powershell_cmd: "bcdedit.exe -set TESTSIGNING ON"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "Restart host before Workstation install"
+      ansible.windows.win_reboot:
+        reboot_timeout: 600
+      register: restart_guest_os
+      delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Check Workstation installation status in Windows host"
+  include_tasks: ../../windows/utils/win_get_software_install_status.yml
+  vars:
+    win_software_name: "VMware Workstation"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+- name: "Set fact of Workstation install status"
+  ansible.builtin.set_fact:
+    dh_host_installed: "{{ win_software_is_installed }}"
+- name: "Uninstall Workstation if it's installed"
+  when: dh_host_installed
+  include_tasks: ../../windows/utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: >-
+      Install-PackageProvider -Name Nuget -Confirm:$false -Force -ForceBootstrap;
+      Get-Package -Name "VMware Workstation*" | Uninstall-Package
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Initialize the facts of Workstation installation file"
+  ansible.builtin.set_fact:
+    ws_install_file_name: "{{ workstation_download_url | ansible.builtin.basename }}"
+
+- name: "Check Workstation installation file name"
+  ansible.builtin.assert:
+    that:
+      - ws_install_file_name
+      - ws_install_file_name.split('.')[-1] | lower == "exe"
+    fail_msg: "Get Workstation installation file name '{{ ws_install_file_name }}' from configured URL '{{ workstation_download_url }}', file suffix is not 'exe' for Windows host."
+
+- name: "Set fact of Workstation installation file download path and log path"
+  ansible.builtin.set_fact:
+    ws_install_file_path: "{{ dh_host_download_path }}{{ ws_install_file_name }}"
+
+- name: "Download Workstation installation file in Windows host"
+  ansible.windows.win_get_url:
+    url: "{{ workstation_download_url }}"
+    dest: "{{ ws_install_file_path }}"
+    checksum: "{{ workstation_package_checksum | default(omit) }}"
+    validate_certs: false
+  delegate_to: "{{ host_machine_hostname }}"
+  register: download_ws_result
+- name: "Display the download result"
+  ansible.builtin.debug: var=download_ws_result
+
+- name: "Check downloading Workstation installation file succeed"
+  ansible.builtin.assert:
+    that:
+      - download_ws_result.status_code is defined
+      - download_ws_result.status_code == 200
+      - download_ws_result.dest is defined
+      - download_ws_result.dest == ws_install_file_path
+    fail_msg: "Downloading Workstation installation file result status code '{{ download_ws_result.status_code | default('') }}' is not 200, or file dest '{{ download_ws_result.dest | default('') }}' is not expected '{{ ws_install_file_path }}'."
+
+- name: "Display downloaded Workstation installation file info"
+  ansible.builtin.debug:
+    msg:
+      - "Downloaded Workstation installation file name: {{ ws_install_file_name }}"
+      - "Downloaded Workstation installation file path: {{ ws_install_file_path }}"
+
+# For example,
+# Install Workstation 17.0.1:
+# C:\\Users\\Administrator\\Downloads\\VMware-workstation-full-17.0.1-21139696.exe /s /v /qn EULAS_AGREED=1
+# /l C:\\Users\\Administrator\\Downloads\\ws_install.log AUTOSOFTWAREUPDATE=0 DATACOLLECTION=0
+# INSTALLDIR="C:\\VMware\\VMware Workstation\\" SERIALNUMBER="xxxx-xxxx-xxxx-xxxx-xxxx"
+- name: "Set fact of Workstation silent install command"
+  ansible.builtin.set_fact:
+    ws_install_cmd: >-
+      {{ ws_install_file_path ~ ' /s /v /qn EULAS_AGREED=1 AUTOSOFTWAREUPDATE=0 DATACOLLECTION=0 REBOOT=ReallySuppress' }}
+
+- name: "Add Workstation install path to install command"
+  when:
+    - workstation_install_path is defined
+    - workstation_install_path
+    - workstation_serial_number is undefined or not workstation_serial_number
+  ansible.builtin.set_fact:
+    ws_install_cmd: >-
+      {{ ws_install_file_path ~ ' /s /v /qn EULAS_AGREED=1 AUTOSOFTWAREUPDATE=0 DATACOLLECTION=0 REBOOT=ReallySuppress INSTALLDIR="' ~ workstation_install_path ~ '"' }}
+
+#- name: "Add Workstation serial number to install command"
+#  when:
+#    - workstation_serial_number is defined
+#    - workstation_serial_number
+#    - workstation_install_path is undefined or not workstation_install_path
+#  ansible.builtin.set_fact:
+#    ws_install_cmd: >-
+#      {{ ws_install_file_path ~ ' /s /v /qn EULAS_AGREED=1 AUTOSOFTWAREUPDATE=0 DATACOLLECTION=0 REBOOT=ReallySuppress SERIALNUMBER="' ~ workstation_serial_number ~ '"' }}
+
+#- name: "Add Workstation serial number and install path to install command"
+#  when:
+#    - workstation_serial_number is defined
+#    - workstation_serial_number
+#    - workstation_install_path is defined
+#    - workstation_install_path
+#  ansible.builtin.set_fact:
+#    ws_install_cmd: >-
+#      {{ ws_install_file_path ~ ' /s /v /qn EULAS_AGREED=1 AUTOSOFTWAREUPDATE=0 DATACOLLECTION=0 REBOOT=ReallySuppress SERIALNUMBER="' ~ workstation_serial_number ~ '" INSTALLDIR="' ~ workstation_install_path ~ '"' }}
+
+- name: "Display Workstation silent install command"
+  ansible.builtin.debug: var=ws_install_cmd
+
+# Note:
+# if use win_shell module the intallation process not launched in guest
+# win_command and win_psexec modules can launch the installation in guest
+- name: "Execute Workstation silent install"
+  ansible.windows.win_command: "{{ ws_install_cmd }}"
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_install_result
+  failed_when:
+    - ws_install_result.rc is defined
+    - ws_install_result.rc not in [0, 3010, 1614, 1641]
+- name: "Display Workstation silent install result"
+  debug: var=ws_install_result
+
+- name: "Pause 90 seconds"
+  ansible.builtin.pause:
+    seconds: 90
+
+- name: "Restart host after Workstation install"
+  ansible.windows.win_reboot:
+    reboot_timeout: 600
+  register: restart_guest_os
+  delegate_to: "{{ host_machine_hostname }}"
+- name: "Display the win_reboot result"
+  ansible.builtin.debug: var=restart_guest_os
+
+- name: "Check VMware Workstation is installed"
+  include_tasks: ../../windows/utils/win_wait_installed_software.yml
+  vars:
+    win_software_name: "VMware Workstation"
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+- name: "Check network adapter version"
+  include_tasks: ../../windows/utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: >-
+      Get-NetAdapter | Select Name,InterfaceDescription,DriverVersion,DriverDate,DriverProvider
+    vm_guest_ip: "{{ host_machine_hostname }}"
+
+#- name: "Make sure VMware Workstation license registry configured"
+#  when:
+#    - workstation_serial_number is defined
+#    - workstation_serial_number
+#  block:
+#    - name: "Check VMware Workstation license registry path"
+#      include_tasks: ../../windows/utils/win_execute_cmd.yml
+#      vars:
+#        win_powershell_cmd: >-
+#          Test-Path -Path "HKLM:\\software\\Wow6432Node\\VMware, Inc.\\VMware Workstation\\License.ws*"
+#        vm_guest_ip: "{{ host_machine_hostname }}"
+#    - name: "Check result"
+#      ansible.builtin.assert:
+#        that:
+#          - win_powershell_cmd_output.rc is defined
+#          - win_powershell_cmd_output.rc == 0
+#          - win_powershell_cmd_output.stdout_lines | length > 0
+#          - win_powershell_cmd_output.stdout_lines[0] == "True"
+#        fail_msg: "Parameter 'workstation_serial_number' is configured, while after Workstation install the license registry path does not exist."
+
+- name: "Set fact of Desktop Hypervisor is installed"
+  ansible.builtin.set_fact:
+    dh_host_installed: true
+- name: "Set fact of Workstation installed path"
+  ansible.builtin.set_fact:
+    dh_host_installed_path: "{{ 'C:\\Program Files (x86)\\VMware\\VMware Workstation' if (workstation_install_path is undefined or not workstation_install_path) else workstation_install_path }}"

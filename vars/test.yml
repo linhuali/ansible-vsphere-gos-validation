@@ -52,7 +52,7 @@
 # and will be reverted to at the setup stage of each test case.
 # Default value is 'BaseSnapshot'.
 #
-base_snapshot_name: "BaseSnapshot"
+# base_snapshot_name: "BaseSnapshot"
 
 # The path to contain testing result file, log file and file collected in test case.
 # If not set, the default path is "logs/vm_name/date_timestamp/"
@@ -349,6 +349,9 @@ windows_product_key_upgrade: "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
 # then testing signing will be enabled in guest OS before executing guest OS upgrade.
 #
 # enable_test_mode: false
+
+# For Windows testing only. allow to skip pause Windows update during test_setup.yml
+# skip_pause_windows_update: true
 
 # 4. memory_hot_add_basic
 # Maximum memory size in MB of VM when doing memory hotadd test. Used in Linux testing

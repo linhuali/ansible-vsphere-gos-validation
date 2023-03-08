@@ -52,9 +52,13 @@
 - name: "Get VM info"
   include_tasks: ../../common/vm_get_vm_info.yml
 
-#- name: "Get VM's primary network adapter MAC address"
-#  include_tasks: ../../common/vm_wait_primary_nic_mac.yml
-# - include_tasks: ../../common/vm_get_ip_from_vmtools.yml
+- name: "Get VM's primary network adapter MAC address after poweron VM"
+  include_tasks: ../../common/vm_wait_primary_nic_mac.yml
+
+- name: "Get VM IP address"
+  include_tasks: ../../common/vm_get_ip.yml
+  vars:
+    vm_get_ip_timeout: 5400
 
 # Copy script ConfigureRemotingForAnsible.ps1 to guest OS
 # - include_tasks: ../../common/vm_guest_file_operation.yml

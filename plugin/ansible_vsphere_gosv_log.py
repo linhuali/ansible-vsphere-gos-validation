@@ -98,18 +98,21 @@ class vSphereInfo(object):
         setattr(self, p_name, p_value)
 
 class TestbedInfo(object):
-    def __init__(self, vcenter_hostname, esxi_hostname,
+    def __init__(self, vcenter_hostname, esxi_hostname, workstation_hostname,
                  ansible_gosv_facts):
         """
         Initialize vCenter and ESXi server info with ansible facts
         :param vcenter_hostname:
         :param esxi_hostname:
+        :param workstation_hostname:
         :param ansible_gosv_facts:
         """
         self.vcenter_info = vSphereInfo('vCenter', vcenter_hostname)
         self.esxi_info = vSphereInfo('ESXi', esxi_hostname)
+        self.workstation_info = vSphereInfo('WS', workstation_hostname)
         self.set_vcenter_info(ansible_gosv_facts)
         self.set_esxi_info(ansible_gosv_facts)
+        self.set_workstation_info(ansible_gosv_facts)
 
     def set_vcenter_info(self, ansible_gosv_facts=None):
         """
@@ -144,6 +147,18 @@ class TestbedInfo(object):
             self.esxi_info.update_property('cpu_codename',
                                            ansible_gosv_facts.get('esxi_cpu_code_name', ''))
 
+    def set_workstation_info(self, ansible_gosv_facts=None):
+            """
+            Update Workstation info with ansible facts
+            :param ansible_gosv_facts:
+            :return:
+            """
+            if ansible_gosv_facts:
+                self.workstation_info.update_property('version',
+                                                  ansible_gosv_facts.get('workstation_version', ''))
+                self.workstation_info.update_property('build',
+                                                  ansible_gosv_facts.get('workstation_build', ''))
+
     def __str__(self):
         """
         Print testbed information as below:
@@ -159,17 +174,20 @@ class TestbedInfo(object):
         """
         msg = "Testbed information:\n"
         if ((not self.vcenter_info or not self.vcenter_info.hostname) and
-             (not self.esxi_info or not self.esxi_info.hostname)):
-            msg += "Not found vCenter or ESXi server information\n"
+             (not self.esxi_info or not self.esxi_info.hostname) and
+             (not self.workstation_info or not self.workstation_info.hostname)):
+            msg += "Not found vCenter or ESXi server or Desktop Hypervisor information\n"
             return msg
 
         # Get version column width
-        version_col_width = max([len('Version'), len(self.vcenter_info.version), len(self.esxi_info.version)])
+        version_col_width = max([len('Version'), len(self.vcenter_info.version), len(self.esxi_info.version),
+                                len(self.workstation_info.version)])
         # Get build column width
-        build_col_width = max([len('Build'), len(self.vcenter_info.build), len(self.esxi_info.build)])
+        build_col_width = max([len('Build'), len(self.vcenter_info.build), len(self.esxi_info.build),
+                                len(self.workstation_info.build)])
         # Get hostname or IP column width
-        hostname_col_width = max(
-            [len('Hostname or IP'), len(self.vcenter_info.hostname), len(self.esxi_info.hostname)])
+        hostname_col_width = max([len('Hostname or IP'), len(self.vcenter_info.hostname), len(self.esxi_info.hostname),
+                                len(self.workstation_info.hostname)])
         # Get server model column width
         esxi_cpu_detail = self.esxi_info.cpu_model
         if self.esxi_info.cpu_codename:
@@ -216,6 +234,15 @@ class TestbedInfo(object):
                                          ''.ljust(build_col_width),
                                          ''.ljust(hostname_col_width),
                                          esxi_cpu_detail.ljust(server_model_col_width))
+            msg += row_border
+
+        # Workstation row
+        if self.workstation_info.hostname:
+            msg += row_format.format("WS",
+                                     self.workstation_info.version.ljust(version_col_width),
+                                     self.workstation_info.build.ljust(build_col_width),
+                                     self.workstation_info.hostname.ljust(hostname_col_width),
+                                     ''.ljust(server_model_col_width))
             msg += row_border
 
         msg += "\n"
@@ -742,7 +769,7 @@ class CallbackModule(CallbackBase):
             # Test cases are blocked by env_setup failure
             testcase_blocked = True
 
-        blocker_pattern = r'deploy_vm|ovt_verify_.*_install|wintools_complete_install_verify'
+        blocker_pattern = r'deploy_vm|ovt_verify_.*_install|wintools_complete_install_verify|dh_.*|install_workstation'
         for test_id in self.test_runs:
             if (self.test_runs[test_id].status in ['Failed', 'Blocked'] and
                 re.search(blocker_pattern, self.test_runs[test_id].name)):
@@ -945,10 +972,13 @@ class CallbackModule(CallbackBase):
                            "set_current_testcase_facts.yml",
                            "vcenter_get_version_build.yml",
                            "esxi_get_version_build.yml",
+                           "workstation_get_version_build.yml",
                            "esxi_get_model.yml",
                            "vm_get_vm_info.yml",
                            "vm_upgrade_hardware_version.yml",
                            "vm_get_guest_info.yml",
+                           "dh_get_guest_info.yml",
+                           "dh_host_get_guest_ip.yml",
                            "get_linux_system_info.yml",
                            "get_cloudinit_version.yml",
                            "check_guest_os_gui.yml",
@@ -981,7 +1011,7 @@ class CallbackModule(CallbackBase):
                             vm_guest_info = VmGuestInfo(self._ansible_gosv_facts)
                             self.collected_guest_info[guestinfo_hash] = vm_guest_info
 
-        elif (task_file in ["deploy_vm.yml", "test_setup.yml"] and
+        elif (task_file in ["deploy_vm.yml", "test_setup.yml", "dh_host_get_guest_ip.yml"] and
               str(task.action) == "ansible.builtin.debug"):
             if 'var' in task_args and task_args['var'] == "vm_guest_ip":
                 if task_result["vm_guest_ip"]:
@@ -1234,12 +1264,15 @@ class CallbackModule(CallbackBase):
             # Print testbed information
             vcenter_hostname = self.testing_vars.get('vcenter_hostname', '')
             esxi_hostname = self.testing_vars.get('esxi_hostname', '')
-            testbed_info = TestbedInfo(vcenter_hostname, esxi_hostname, self._ansible_gosv_facts)
+            workstation_hostname = self.testing_vars.get('host_machine_hostname', '')
+            testbed_info = TestbedInfo(vcenter_hostname, esxi_hostname, workstation_hostname, self._ansible_gosv_facts)
             self.logger.info(str(testbed_info))
             self._display.display(str(testbed_info), color=C.COLOR_VERBOSE)
 
             # Print VM information
             vm_name = self.testing_vars.get('vm_name', None)
+            if workstation_hostname:
+                vm_name = self.testing_vars.get('dh_vm_name', None)
             vm_info = VmDetailInfo(vm_name, self._ansible_gosv_facts)
             self.logger.info(str(vm_info))
             self._display.display(str(vm_info), color=C.COLOR_VERBOSE)

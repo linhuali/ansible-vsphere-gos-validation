@@ -77,8 +77,16 @@
       when: unattend_installer in ['Ubuntu-Ubiquity', 'Photon', 'Debian', 'FreeBSD', 'Pardus']
       block:
         - name: "Set fact of the rebuilt new OS installation ISO file name"
+          when: is_vsphere_env
           ansible.builtin.set_fact:
             new_os_installation_iso: "{{ (os_installation_iso_list[0] | basename | splitext)[0] }}-{{ current_test_timestamp }}.iso"
+
+        - name: "Set fact of new_os_installation_iso name for Desktop Hypervisor"
+          when:
+            - not is_vsphere_env
+            - dh_guest_iso_path is defined and dh_guest_iso_path
+          ansible.builtin.set_fact:
+            new_os_installation_iso: "{{ (dh_guest_iso_path | basename | splitext)[0] }}-{{ timestamp }}.iso"
 
         - name: "Set fact of the local path to the rebuilt OS installation ISO file"
           ansible.builtin.set_fact:
@@ -106,6 +114,17 @@
         unattend_iso_file_path: "{{ seed_iso_path }}"
         unattend_iso_file_name: "{{ seed_iso_path | basename }}"
         new_os_installation_iso: "{{ (os_installation_iso_list[0] | basename | splitext)[0] }}-{{ current_test_timestamp }}.iso"
+      when: is_vsphere_env and not in_desktop_hypervisor_testing
+
+    - name: "Set fact of new_os_installation_iso name for Desktop Hypervisor"
+      when:
+        - not is_vsphere_env
+        - dh_guest_iso_path is defined and dh_guest_iso_path
+      ansible.builtin.set_fact:
+        new_unattend_install_conf: "{{ user_data_path }}"
+        unattend_iso_file_path: "{{ seed_iso_path }}"
+        unattend_iso_file_name: "{{ seed_iso_path | basename }}"
+        new_os_installation_iso: "{{ dh_guest_iso_path | basename }}"
 
     - name: "Set fact of the local path to the rebuilt OS installation ISO file"
       ansible.builtin.set_fact:
@@ -116,6 +135,15 @@
       vars:
         rebuilt_unattend_iso_path: "{{ new_os_installation_iso_path }}"
 
+    - name: "Upload Ubuntu fully automated install ISO to Desktop Hypervisor Host"
+      when: not is_vsphere_env
+      include_tasks: ../../common/transfer_file_remote.yml
+      vars:
+        transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ new_os_installation_iso }}"
+        transfer_file_remote_dest: "{{ dh_vm_path }}"
+        transfer_file_remote_server: "{{ host_machine_hostname }}"
+        transfer_file_remote_mode: "0777"
+
 - name: "Display facts of unattend install config file and ISOs"
   ansible.builtin.debug:
     msg:
@@ -125,31 +153,46 @@
       - "The rebuilt OS installation ISO file name is {{ new_os_installation_iso }}"
       - "The rebuilt OS installation ISO file path is {{ new_os_installation_iso_path }}"
 
-- name: "Set fact of unattend install ISO files to be uploaded to ESXi datastore"
+- name: "Set fact of unattend install ISO files to be uploaded to Host"
   ansible.builtin.set_fact:
     transferred_unattend_iso_list: "{{ [unattend_iso_file_name, new_os_installation_iso] | select }}"
 
-- name: "Display unattend install ISO files to be uploaded to ESXi datastore"
+- name: "Display unattend install ISO files to be uploaded to Host"
   ansible.builtin.debug:
-    msg: "The unattend install ISO to be uploaded to ESXi datastore {{ datastore }}: {{ transferred_unattend_iso_list }}"
+    msg: "The unattend install ISO to be uploaded: {{ transferred_unattend_iso_list }}"
 
-- name: "Upload unattend install ISO files to ESXi datastore"
-  include_tasks: ../../common/esxi_upload_datastore_file.yml
-  vars:
-    src_file_path: "{{ unattend_iso_cache }}/{{ item }}"
-    dest_file_path: "{{ item }}"
-    upload_file_timeout: 600
-  with_items: "{{ transferred_unattend_iso_list }}"
+- name: "Upload unattend install ISO to ESXi datastore"
+  when: is_vsphere_env
+  block:
+    - name: "Upload unattend install ISO files to ESXi datastore"
+      include_tasks: ../../common/esxi_upload_datastore_file.yml
+      vars:
+        src_file_path: "{{ unattend_iso_cache }}/{{ item }}"
+        dest_file_path: "{{ item }}"
+        upload_file_timeout: 600
+      with_items: "{{ transferred_unattend_iso_list }}"
 
-- name: "Replace original OS installation ISO file with new rebuilt ISO file"
-  ansible.builtin.set_fact:
-    os_installation_iso_list:
-      - "[{{ datastore }}] {{ new_os_installation_iso }}"
-    os_install_iso_list_len: 1
-  when: new_os_installation_iso
+    - name: "Replace original OS installation ISO file with new rebuilt ISO file"
+      ansible.builtin.set_fact:
+        os_installation_iso_list:
+          - "[{{ datastore }}] {{ new_os_installation_iso }}"
+        os_install_iso_list_len: 1
+      when: new_os_installation_iso
 
-- name: "Append generated unattend install ISO file to OS installation ISO list"
-  ansible.builtin.set_fact:
-    os_installation_iso_list: "{{ os_installation_iso_list + ['[' ~ datastore ~ '] ' ~ unattend_iso_file_name] }}"
-    os_install_iso_list_len: "{{ os_install_iso_list_len | int + 1 }}"
-  when: unattend_iso_file_name
+    - name: "Append generated unattend install ISO file to OS installation ISO list"
+      ansible.builtin.set_fact:
+        os_installation_iso_list: "{{ os_installation_iso_list + ['[' ~ datastore ~ '] ' ~ unattend_iso_file_name] }}"
+        os_install_iso_list_len: "{{ os_install_iso_list_len | int + 1 }}"
+      when: unattend_iso_file_name
+
+- name: "Upload unattend install ISO to Desktop Hypervisor Host"
+  when: not is_vsphere_env
+  block:
+    - name: "Copy Autounattend install ISO file to Linux host"
+      include_tasks: ../../common/transfer_file_remote.yml
+      vars:
+        transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ item }}"
+        transfer_file_remote_dest: "{{ dh_vm_unattend_iso_path }}"
+        transfer_file_remote_server: "{{ host_machine_hostname }}"
+        transfer_file_remote_mode: "0777"
+      with_items: "{{ transferred_unattend_iso_list }}"

@@ -64,7 +64,9 @@
   include_tasks: ../utils/win_pause_resume_win_update.yml
   vars:
     win_update_ops: 'pause'
-  when: not base_snapshot_exists
+  when:
+    - not base_snapshot_exists
+    - not (skip_pause_windows_update is defined and skip_pause_windows_update | bool)
 
 - name: "Get VMware Tools status"
   include_tasks: ../../common/vm_get_vmtools_status.yml
