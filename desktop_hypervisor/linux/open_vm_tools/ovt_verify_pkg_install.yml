@@ -114,6 +114,12 @@
 
         - name: "Get VM guest info including detailed data"
           include_tasks: ../../common/dh_get_guest_info.yml
+
+        - name: "Shutdown guest OS in desktop hypervisor"
+          include_tasks: ../../common/dh_host_power_vm.yml
+          vars:
+            vm_power_option: "stop"
+            vmrun_extra_option: "hard"
       rescue:
         - name: "Test case failure"
           include_tasks: ../../common/dh_test_rescue.yml
