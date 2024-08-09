@@ -86,14 +86,6 @@
               vars:
                 vm_guest_ip: "{{ dh_vm_guest_ip }}"
 
-            - name: "Uninstall VMware Tools firstly when it's installed"
-              include_tasks: ../../../windows/wintools_uninstall_verify/uninstall_vmtools.yml
-              vars:
-                vm_guest_ip: "{{ dh_vm_guest_ip }}"
-              when:
-                - update_vmtools | bool
-                - vmtools_version_build
-
             - name: "Pause 180 seconds"
               ansible.builtin.pause:
                 seconds: 180
@@ -102,10 +94,16 @@
               include_tasks: ../../../windows/wintools_complete_install_verify/enable_test_signing.yml
               when: is_development_tools is defined and is_development_tools | bool
 
+            - name: "Prepare VMware Tools install"
+              include_tasks: ../../../windows/wintools_complete_install_verify/prepare_vmtools_install.yml
+              vars:
+                vm_guest_ip: "{{ dh_vm_guest_ip }}"
+
             - name: "Install VMware Tools"
               include_tasks: ../../../windows/wintools_complete_install_verify/install_vmtools.yml
               vars:
                 vm_guest_ip: "{{ dh_vm_guest_ip }}"
+                vmtools_is_installed: true
 
             - name: "Verify VMware Tools"
               include_tasks: ../../../windows/wintools_complete_install_verify/verify_vmtools.yml
