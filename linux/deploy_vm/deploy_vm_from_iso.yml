@@ -278,20 +278,6 @@
 - name: "Get Linux system info"
   include_tasks: ../utils/get_linux_system_info.yml
 
-- name: "Disable cloud-init for RHEL/CentOS 10"
-  when:
-    - unattend_installer == "RHEL"
-    - guest_os_ansible_distribution_major_ver >= "10"
-  block:
-    - name: "Create file /etc/cloud/cloud-init.disabled to disable gosc with cloud-init"
-      ansible.builtin.file:
-        path: /etc/cloud/cloud-init.disabled
-        state: touch
-        mode: "777"
-      delegate_to: "{{ vm_guest_ip }}"
-    - name: "Reboot VM to make changes take effect"
-      include_tasks: ../utils/reboot.yml
-
 - name: "Wait for guest OS service is ready"
   when:
     - guest_os_with_gui is defined

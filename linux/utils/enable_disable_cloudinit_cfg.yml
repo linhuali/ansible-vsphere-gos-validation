@@ -126,6 +126,16 @@
           delegate_to: "{{ vm_guest_ip }}"
           ignore_errors: true
 
+        - name: "Remove cloud-init file if it exists on {{ vm_guest_os_distribution }}"
+          ansible.builtin.file:
+            path: "/etc/cloud/cloud-init.disabled"
+            state: absent
+            force: true
+          when:
+            - unattend_installer == "RHEL"
+            - guest_os_ansible_distribution_major_ver >= "8"
+          delegate_to: "{{ vm_guest_ip }}"
+
         - name: "Clean cloud-init seed and logs"
           ansible.builtin.shell: "cloud-init clean --log --seed"
           delegate_to: "{{ vm_guest_ip }}"
@@ -194,5 +204,7 @@
             path: /etc/cloud/cloud-init.disabled
             state: touch
             mode: "777"
-          when: guest_os_ansible_distribution == "Ubuntu"
+          when: >
+            guest_os_ansible_distribution == "Ubuntu" or
+            (unattend_installer == "RHEL" and guest_os_ansible_distribution_major_ver >= "8")
           delegate_to: "{{ vm_guest_ip }}"
