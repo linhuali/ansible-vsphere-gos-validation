@@ -46,6 +46,7 @@
         mode: "0777"
         checksum: "{{ workstation_package_checksum | default(omit) }}"
         validate_certs: false
+        timeout: 180
       delegate_to: "{{ host_machine_hostname }}"
       register: download_ws_result
     - name: "Display the download result"

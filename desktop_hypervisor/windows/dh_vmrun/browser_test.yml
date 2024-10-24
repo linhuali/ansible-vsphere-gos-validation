@@ -35,6 +35,7 @@
         url: "{{ firefox_url }}"
         dest: "{{ firefox_local_path }}"
         validate_certs: false
+        url_timeout: 180
       delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Copy firefox setup.exe from host to guest with vmrun"
