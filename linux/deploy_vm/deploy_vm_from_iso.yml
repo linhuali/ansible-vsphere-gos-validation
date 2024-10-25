@@ -20,6 +20,11 @@
     - cpu_number is undefined or not cpu_number
     - cpu_cores_per_socket is defined and cpu_cores_per_socket
 
+- name: "Set upgrade_kernel_version as empty"
+  ansible.builtin.set_fact:
+    upgrade_kernel_version: ""
+  when: upgrade_kernel_version is undefined or not upgrade_kernel_version
+
 # Installing FreeBSD 32bit on lsilogic/lsilogicsas/nvme disk will
 # fail when memory size >= 4 GB
 - name: "Set the fact of memory size for the new VM"
@@ -300,6 +305,10 @@
       vars:
         service_name: "{{ wait_service_name }}"
         wait_service_status: "running"
+
+- name: "Upgrade Ubuntu {{ guest_os_ansible_distribution_ver }} kernel to {{ upgrade_kernel_version }}"
+  include_tasks: ubuntu/upgrade_mainline_kernel.yml
+  when: guest_os_ansible_distribution == "Ubuntu" and upgrade_kernel_version
 
 - name: "Upgrade Oracle Linux 9.0 kernel from UEK R7 GA to latest UEK R7"
   when:

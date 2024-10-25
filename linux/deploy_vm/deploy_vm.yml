@@ -19,6 +19,15 @@
         skip_reason: "Skipped"
       when: not new_vm
 
+    - name: "Skip test case"
+      include_tasks: ../../common/skip_test_case.yml
+      vars:
+        skip_msg: "Skip test case due to upgrade_kernel_version is {{ upgrade_kernel_version }}, not matching the format: v6.11 or v6.11-rc7"
+        skip_reason: "Not Supported"
+      when:
+        - upgrade_kernel_version is defined
+        - upgrade_kernel_version is not match('v[0-9]+.[0-9a-z.-]+')
+
     - name: "Test case block"
       block:
         # Change vm_username to root if it is not. And add a new user after VM deployment

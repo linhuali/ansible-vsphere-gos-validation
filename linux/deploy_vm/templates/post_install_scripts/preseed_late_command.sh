@@ -18,6 +18,10 @@ if [ "X$OS_DM" != "X" ]; then
 fi
 {% endif %}
 
+{% if unattend_installer =~ 'Ubuntu' %}
+required_pkgs="$required_pkgs nfs-common curl"
+{% endif %}
+
 {% include 'apt_install_pkgs.sh' %}
 
 # Set default locale
