@@ -44,7 +44,7 @@
 - name: "Check kernel upgrade result"
   ansible.builtin.assert:
     that:
-      - "'error' in kernel_upgrade_result.stderr"
+      - "'error' not in kernel_upgrade_result.stderr"
     fail_msg: "Kernel upgrading failed"
 
 - name: "Set the fact of that kernel is upgraded"
