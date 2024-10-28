@@ -27,7 +27,7 @@
 
 - name: "Check upgrade_kernel_version exists"
   include_tasks: ubuntu/check_mainline_kernel.yml
-  when: unattend_installer is match('Ubuntu.*') and upgrade_kernel_version
+  when: upgrade_kernel_version
 
 # Installing FreeBSD 32bit on lsilogic/lsilogicsas/nvme disk will
 # fail when memory size >= 4 GB
