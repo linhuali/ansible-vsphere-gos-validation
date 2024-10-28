@@ -1,15 +1,29 @@
 # Copyright 2022-2024 VMware, Inc.
 # SPDX-License-Identifier: BSD-2-Clause
 ---
-- name: "Set the base url for kernel version check"
+- name: "Set facts of linux kernel directory for downloading source file"
   ansible.builtin.set_fact:
-    mainline_kernel_url: "https://kernel.ubuntu.com/mainline"
+    mainline_kernel_download_dir: "/root/kernel_source_{{ current_test_timestamp }}"
 
-- name: "Check the kernel version exists"
-  ansible.builtin.uri:
-    url: "{{ mainline_kernel_url }}/{{ upgrade_kernel_version }}/amd64"
-  register: check_kernel_result
-  ignore_errors: false
+- name: "Create directory for downloading linux kernel source files"
+  ansible.builtin.file:
+    path: "{{ mainline_kernel_download_dir }}"
+    mode: "{{ dir_mode | default('0755') }}"
+    state: directory
+    recurse: true
+  delegate_to: "{{ vm_guest_ip }}"
+
+- name: "Download linux kernel source files"
+  ansible.builtin.get_url:
+    url: "{{ mainline_kernel_url }}/{{ mainline_kernel_file }}"
+    dest: "{{ mainline_kernel_download_dir }}"
+    validate_certs: False
+    #mode: "0644"
+  delegate_to: "{{ vm_guest_ip }}"
+  register: mainline_kernel_download_result
+  with_list: "{{ mainline_kernel_files }}"
+  loop_control:
+    loop_var: mainline_kernel_file
 
 - name: "Take a snapshot before upgrading kernel"
   include_tasks: ../../../common/vm_take_snapshot.yml
@@ -23,11 +37,15 @@
 
 - name: "Update mainline kernel to {{ upgrade_kernel_version }} for Ubuntu"
   ansible.builtin.shell: |
-    wget -c -- $(curl -s {{ mainline_kernel_url }}/v{{ upgrade_kernel_version }}/amd64/ | sed 's/"\|>\|</\n/g' | grep deb | uniq | while read line; do echo "{{ mainline_kernel_url }}/v{{ upgrade_kernel_version }}/amd64/${line}";done)
-    if [ $? -eq 0 ]; then dpkg -i linux*.deb; rm -rf linux*.deb; fi
-    sed -i 's/#WaylandEnable=false/WaylandEnable=false/'  /etc/gdm3/custom.conf
+    dpkg -i {{ mainline_kernel_download_dir }}/linux*.deb
   register: kernel_upgrade_result
   delegate_to: "{{ vm_guest_ip }}"
+
+- name: "Check kernel upgrade result"
+  ansible.builtin.assert:
+    that:
+      - "'error' in kernel_upgrade_result.stderr"
+    fail_msg: "Kernel upgrading failed"
 
 - name: "Set the fact of that kernel is upgraded"
   ansible.builtin.set_fact:

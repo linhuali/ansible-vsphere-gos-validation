@@ -1,9 +1,6 @@
 # Copyright 2021-2024 VMware, Inc.
 # SPDX-License-Identifier: BSD-2-Clause
 ---
-# Deploy a new VM and install guest OS automatically from an ISO image
-#
-# Initialize undefined variables
 - name: "Initialize variables for new VM settings"
   ansible.builtin.set_fact:
     boot_disk_controller: "{{ boot_disk_controller if (boot_disk_controller is defined and boot_disk_controller) else 'paravirtual' }}"
@@ -24,6 +21,10 @@
   ansible.builtin.set_fact:
     upgrade_kernel_version: ""
   when: upgrade_kernel_version is undefined or not upgrade_kernel_version
+
+- name: "Check upgrade_kernel_version exists"
+  include_tasks: ubuntu/check_mainline_kernel.yml
+  when: upgrade_kernel_version
 
 # Installing FreeBSD 32bit on lsilogic/lsilogicsas/nvme disk will
 # fail when memory size >= 4 GB

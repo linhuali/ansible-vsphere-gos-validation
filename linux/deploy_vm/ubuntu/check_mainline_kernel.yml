@@ -1,0 +1,22 @@
+# Copyright 2022-2024 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Set the base url for kernel version check"
+  ansible.builtin.set_fact:
+    mainline_kernel_url: "https://kernel.ubuntu.com/mainline/{{ upgrade_kernel_version }}/amd64"
+
+- name: "Check the kernel version exists"
+  ansible.builtin.uri:
+    url: "{{ mainline_kernel_url }}"
+    return_content: true
+  register: check_kernel_result
+  ignore_errors: false
+
+- name: "Get the mainline kernel files"
+  ansible.builtin.set_fact:
+    mainline_kernel_files: "{{ check_kernel_result.content | regex_findall('linux-[\\w\\.-]*.deb') | unique }}"
+
+- name: "Check kernel file list is empty"
+  ansible.builtin.fail:
+    msg: "Failed to find kernel files"
+  when: mainline_kernel_files | length == 0
