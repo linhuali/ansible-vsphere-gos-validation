@@ -40,12 +40,7 @@
     dpkg -i {{ mainline_kernel_download_dir }}/linux*.deb
   register: kernel_upgrade_result
   delegate_to: "{{ vm_guest_ip }}"
-
-- name: "Check kernel upgrade result"
-  ansible.builtin.assert:
-    that:
-      - "'error' not in kernel_upgrade_result.stderr"
-    fail_msg: "Kernel upgrading failed"
+  failed_when: "'error' in kernel_upgrade_result.stderr"
 
 - name: "Set the fact of that kernel is upgraded"
   ansible.builtin.set_fact:
