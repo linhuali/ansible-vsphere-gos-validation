@@ -72,14 +72,14 @@
     ws_install_cmd: >-
       {{ ws_install_file_path }} --console --required --eulas-agreed --set-setting vmware-workstation
 
-- name: "Add Workstation serial number to install command"
-  when:
-    - workstation_serial_number is defined
-    - workstation_serial_number
-    - workstation_install_path is undefined or not workstation_install_path
-  ansible.builtin.set_fact:
-    ws_install_cmd: >-
-      {{ ws_install_cmd }} serialNumber "{{ workstation_serial_number }}"
+#- name: "Add Workstation serial number to install command"
+#  when:
+#    - workstation_serial_number is defined
+#    - workstation_serial_number
+#    - workstation_install_path is undefined or not workstation_install_path
+#  ansible.builtin.set_fact:
+#    ws_install_cmd: >-
+#      {{ ws_install_cmd }} serialNumber "{{ workstation_serial_number }}"
 
 - name: "Set the facts of Workstation execution file"
   ansible.builtin.set_fact:
