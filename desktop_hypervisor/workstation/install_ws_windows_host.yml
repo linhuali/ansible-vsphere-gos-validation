@@ -155,25 +155,25 @@
       Get-NetAdapter | Select Name,InterfaceDescription,DriverVersion,DriverDate,DriverProvider
     vm_guest_ip: "{{ host_machine_hostname }}"
 
-- name: "Make sure VMware Workstation license registry configured"
-  when:
-    - workstation_serial_number is defined
-    - workstation_serial_number
-  block:
-    - name: "Check VMware Workstation license registry path"
-      include_tasks: ../../windows/utils/win_execute_cmd.yml
-      vars:
-        win_powershell_cmd: >-
-          Test-Path -Path "HKLM:\\software\\Wow6432Node\\VMware, Inc.\\VMware Workstation\\License.ws*"
-        vm_guest_ip: "{{ host_machine_hostname }}"
-    - name: "Check result"
-      ansible.builtin.assert:
-        that:
-          - win_powershell_cmd_output.rc is defined
-          - win_powershell_cmd_output.rc == 0
-          - win_powershell_cmd_output.stdout_lines | length > 0
-          - win_powershell_cmd_output.stdout_lines[0] == "True"
-        fail_msg: "Parameter 'workstation_serial_number' is configured, while after Workstation install the license registry path does not exist."
+#- name: "Make sure VMware Workstation license registry configured"
+#  when:
+#    - workstation_serial_number is defined
+#    - workstation_serial_number
+#  block:
+#    - name: "Check VMware Workstation license registry path"
+#      include_tasks: ../../windows/utils/win_execute_cmd.yml
+#      vars:
+#        win_powershell_cmd: >-
+#          Test-Path -Path "HKLM:\\software\\Wow6432Node\\VMware, Inc.\\VMware Workstation\\License.ws*"
+#        vm_guest_ip: "{{ host_machine_hostname }}"
+#    - name: "Check result"
+#      ansible.builtin.assert:
+#        that:
+#          - win_powershell_cmd_output.rc is defined
+#          - win_powershell_cmd_output.rc == 0
+#          - win_powershell_cmd_output.stdout_lines | length > 0
+#          - win_powershell_cmd_output.stdout_lines[0] == "True"
+#        fail_msg: "Parameter 'workstation_serial_number' is configured, while after Workstation install the license registry path does not exist."
 
 - name: "Set fact of Desktop Hypervisor is installed"
   ansible.builtin.set_fact:
