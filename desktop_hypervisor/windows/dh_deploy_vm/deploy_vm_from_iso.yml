@@ -24,10 +24,27 @@
         win_check_file_exist_file: "{{ workstation_install_path }}\\windows-x86.iso"
         vm_guest_ip: "{{ host_machine_hostname }}"
       register: dh_vm_guest_tools
+    - name: "Display the check result"
+      ansible.builtin.debug: var=dh_vm_guest_tools
+    - name: "Download windows-x86.iso from buildweb"
+      when: not win_check_file_exist_result
+      block:
+        - name: "Download 12.4.5 windows-x86.iso"
+          ansible.windows.win_get_url:
+            url: "http://build-squid.vcfd.broadcom.net/build/mts/release/bora-23787635/publish/windows-x86.iso"
+            dest: "{{ dh_host_installed_path }}"
+            checksum: "{{ workstation_package_checksum | default(omit) }}"
+            validate_certs: false
+          delegate_to: "{{ host_machine_hostname }}"
+          register: download_tools_result
+        - name: "Display the download result"
+          ansible.builtin.debug: var=download_tools_result
     - name: "Set windows-x86.iso for Windows 32bit guest"
       ansible.builtin.set_fact:
         dh_vm_tools_path: "{{ workstation_install_path }}\\windows-x86.iso"
-      when: dh_vm_guest_tools
+      when: >
+        win_check_file_exist_result or 
+        (download_tools_result.status_code is defined and download_tools_result.status_code | int == 200)
 
 - name: "Prepare OS install ISO file"
   include_tasks: set_gos_iso_path.yml 
