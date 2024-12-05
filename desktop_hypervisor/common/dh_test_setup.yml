@@ -191,7 +191,7 @@
       when:
         - "'workstation' in ansible_play_name"
         - dh_host_installed
-        - dh_vm_exists
+        #- dh_vm_exists is defined and dh_vm_exists
 
 - name: "Power off Guest if it's running"
   when:
