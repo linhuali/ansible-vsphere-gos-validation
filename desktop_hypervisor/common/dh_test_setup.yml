@@ -50,7 +50,9 @@
         workstation_install_path: 'C:\\Program Files (x86)\\VMware\\VMware Workstation'
       when: workstation_install_path is undefined or not workstation_install_path
     - name: "Set facts of VM path and vmx path"
-      when: dh_vm_vmx_path is undefined or not dh_vm_vmx_path
+      when: >
+        (dh_vm_vmx_path is undefined or not dh_vm_vmx_path) or
+        "'{{ dh_vm_new_name }}' not in '{{ dh_vm_vmx_path }}'"
       block:
         - name: "Set the default VM folder in Windows host"
           when: dh_vm_path is undefined or not dh_vm_path
