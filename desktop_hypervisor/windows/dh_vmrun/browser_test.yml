@@ -42,6 +42,8 @@
   ansible.windows.win_command:
     cmd: '"{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} copyFileFromHostToGuest "{{ dh_vm_vmx_path }}" {{ firefox_local_path }} {{ firefox_local_path }}'
   delegate_to: "{{ host_machine_hostname }}"
+  async: 300
+  poll: 60
 
 - name: "Initialize facts for powershell_cmd"
   ansible.builtin.set_fact:
