@@ -81,10 +81,6 @@
   delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Take a VM screenshot after browser test"
-  ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ vnc_port.stdout_lines[0] }} capture {{ current_test_log_folder }}/vm_screenshot_after_check_browser_test.png"
-  register: vncdo_take_screenshot
-  failed_when:
-    - vncdo_take_screenshot.stderr is defined
-    - "'refused' in vncdo_take_screenshot.stderr"
-- name: "Display the vncdotool taking screenshot result"
-  ansible.builtin.debug: var=vncdo_take_screenshot
+  include_tasks: ../../common/dh_vm_take_screenshot.yml
+  vars:
+    screenshot_name: "browser_test"

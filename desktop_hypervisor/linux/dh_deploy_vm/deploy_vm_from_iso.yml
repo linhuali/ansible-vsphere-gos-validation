@@ -156,12 +156,9 @@
         - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Subiquity')
       block:
         - name: "Take a VM screenshot after start"
-          ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} capture {{ current_test_log_folder }}/vm_screenshot_after_start.png"
-          register: vncdo_take_screenshot
-          async: 300
-          poll: 60
-        - name: "Display the vncdotool taking screenshot result"
-          ansible.builtin.debug: var=vncdo_take_screenshot
+          include_tasks: ../../common/dh_vm_take_screenshot.yml
+          vars:
+            screenshot_name: "start"
 
     - name: "Send keystrokes when VM firmware is EFI"
       when: dh_vm_firmware | lower == 'efi'
@@ -211,13 +208,9 @@
         vm_wait_log_retries: 300
 
     - name: "Take a VM screenshot when autoinstall complete message is received"
-      ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} capture {{ current_test_log_folder }}/vm_screenshot_after_autoinstall.png"
-      register: vncdo_take_screenshot
-      async: 300
-      poll: 60
-      ignore_errors: true
-    - name: "Display the vncdotool taking screenshot result"
-      ansible.builtin.debug: var=vncdo_take_screenshot
+      include_tasks: ../../common/dh_vm_take_screenshot.yml
+      vars:
+        screenshot_name: "autoinstall"
 
     - name: "Wait 60s after autoinstall completes"
       ansible.builtin.pause:

@@ -30,13 +30,10 @@
       delegate_to: "{{ host_machine_hostname }}"
 
     - name: "Take a VM screenshot after start"
+      include_tasks: ../../common/dh_vm_take_screenshot.yml
+      vars:
+        screenshot_name: "start"
       when: dh_vm_vnc_port is defined and dh_vm_vnc_port
-      block:
-        - name: "Take a VM screenshot"
-          ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ vnc_port.stdout_lines[0] }} capture {{ current_test_log_folder }}/vm_screenshot_after_start.png"
-          register: vncdo_take_screenshot
-        - name: "Display the vncdotool taking screenshot result"
-          ansible.builtin.debug: var=vncdo_take_screenshot
 
     - name: "Get Guest VM IP"
       include_tasks: ../../common/dh_host_get_guest_ip.yml

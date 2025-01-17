@@ -99,11 +99,9 @@
           ansible.builtin.debug: var=vm_guest_ip
       rescue:
         - name: "Take a VM screenshot when autoinstall fails"
-          ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} capture {{ current_test_log_folder }}/vm_screenshot_when_autoinstall_failed.png"
-          register: vncdo_take_screenshot
-          async: 300
-          poll: 60
-          ignore_errors: true
+          include_tasks: ../../common/dh_vm_take_screenshot.yml
+          vars:
+            screenshot_name: "failure"
           when: dh_vm_deploy_method == "iso"
         - name: "Test case failure"
           include_tasks: ../../common/dh_test_rescue.yml
