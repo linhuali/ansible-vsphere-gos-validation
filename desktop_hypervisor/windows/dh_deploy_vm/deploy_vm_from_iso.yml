@@ -131,10 +131,9 @@
     seconds: 30
 
 - name: "Take a VM screenshot after start"
-  ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} capture {{ current_test_log_folder }}/vm_screenshot_after_start.png"
-  register: vncdo_take_screenshot
-- name: "Display the vncdotool taking screenshot result"
-  ansible.builtin.debug: var=vncdo_take_screenshot
+  include_tasks: ../../common/dh_vm_take_screenshot.yml
+  vars:
+    screenshot_name: "start"
 
 - name: "Send keystrokes when VM firmware is EFI"
   when: dh_vm_firmware | lower == 'efi'
@@ -145,13 +144,17 @@
     - name: "Display the vncdotool sends keys result"
       ansible.builtin.debug: var=vncdo_send_keys
     - name: "Take a VM screenshot after send keys"
-      ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} capture {{ current_test_log_folder }}/vm_screenshot_after_send_keys.png"
-      register: vncdo_take_screenshot
-    - name: "Display the vncdotool taking screenshot result"
-      ansible.builtin.debug: var=vncdo_take_screenshot
+      include_tasks: ../../common/dh_vm_take_screenshot.yml
+      vars:
+        screenshot_name: "send_keys"
 
 - name: "Get Guest VM IP"
   include_tasks: ../../common/dh_host_get_guest_ip.yml
+
+- name: "Take a VM screenshot after complete"
+  include_tasks: ../../common/dh_vm_take_screenshot.yml
+  vars:
+    screenshot_name: "complete"
 
 - name: "Get VMTools version"
   include_tasks: ../../common/dh_get_guest_vmtools.yml
