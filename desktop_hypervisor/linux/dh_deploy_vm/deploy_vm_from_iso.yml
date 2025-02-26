@@ -4,9 +4,11 @@
 # Initialize undefined variables
 - name: "Initialize variables for new VM settings"
   ansible.builtin.set_fact:
-    boot_disk_controller: "{{ dh_vm_boot_disk_controller if (dh_vm_boot_disk_controller is defined and dh_vm_boot_disk_controller) else 'paravirtual' }}"
-    firmware: "{{ dh_vm_firmware if (dh_vm_firmware is defined and dh_vm_firmware) else 'efi' }}"
-    network_adapter_type: "{{ dh_vm_network_adapter if (dh_vm_network_adapter is defined and dh_vm_network_adapter) else 'vmxnet3' }}"
+    boot_disk_controller: "{{ dh_vm_boot_disk_controller | lower if (dh_vm_boot_disk_controller is defined and dh_vm_boot_disk_controller) else 'paravirtual' }}"
+    firmware: "{{ dh_vm_firmware if (dh_vm_firmware | lower is defined and dh_vm_firmware) else 'efi' }}"
+    network_adapter_type: "{{ dh_vm_network_adapter | lower if (dh_vm_network_adapter is defined and dh_vm_network_adapter) else 'vmxnet3' }}"
+    autoinstall_start_msg: ""
+    autoinstall_ipv4_msg: ""
     autoinstall_complete_msg: "Autoinstall is completed."
 
 - name: "Set fact of the timestamp"
