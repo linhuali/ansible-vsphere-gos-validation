@@ -35,7 +35,8 @@
   block:
     - name: "Set fact of source ISO image file dir at local"
       ansible.builtin.set_fact:
-        src_iso_file_dir: "{{ unattend_iso_cache }}"
+        src_iso_dir_path: "{{ unattend_iso_cache }}"
+        #src_iso_file_dir: "{{ unattend_iso_cache }}"
         #src_iso_file_dir: "{{ dh_guest_iso_local_path | dirname }}"
     - name: "Set fact of source ISO image file name and path at local"
       when: iso_http_server_path is defined and iso_http_server_path
