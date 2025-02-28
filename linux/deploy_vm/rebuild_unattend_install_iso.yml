@@ -26,7 +26,7 @@
     ansible.builtin.set_fact:
       src_iso_dir_path: "{{ datastore_file_download_result.dest | dirname }}"
       src_iso_file_name: "{{ datastore_file_download_result.dest | basename }}"
-      xsrc_iso_file_path: "{{ datastore_file_download_result.dest }}"
+      src_iso_file_path: "{{ datastore_file_download_result.dest }}"
 
 - name: "Set fact of source ISO image file name and path"
   when:
