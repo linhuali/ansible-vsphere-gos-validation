@@ -136,7 +136,7 @@
         dh_guest_unattend_install_conf is match('Pardus')
       include_tasks: ../../common/set_disk_cdrom_in_vmx.yml
       vars:
-        dh_guest_iso_path: "{{ dh_vm_unattend_iso_path }}"
+        #dh_guest_iso_path: "{{ dh_vm_unattend_iso_path }}"
         unattend_install_iso: "{{ dh_vm_unattend_iso_path }}"
 
     - name: "Copy new VM vmx file from local to Linux host"
