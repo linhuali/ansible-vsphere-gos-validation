@@ -270,3 +270,8 @@
   always:
     - name: "Collect VM deployment logs"
       include_tasks: ../../../linux/deploy_vm/collect_vm_logs.yml
+    - name: "Get the serial log to local"
+      include_tasks: ../../common/dh_get_file.yml
+      vars:
+        file_src_path: "{{ vm_serial_port_file_path }}"
+        file_dst_path: "{{ current_test_log_folder }}"
