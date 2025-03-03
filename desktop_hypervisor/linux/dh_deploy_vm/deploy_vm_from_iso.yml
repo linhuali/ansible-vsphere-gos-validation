@@ -205,6 +205,15 @@
       include_tasks: ../../common/dh_host_get_log.yml
       vars:
         vm_wait_log_name: "{{ vm_serial_port_file_path }}"
+        vm_wait_log_msg: "{{ autoinstall_ipv4_msg }}[^\\r\\n]*"
+        vm_wait_log_delay: 30
+        vm_wait_log_retries: 300
+      when: autoinstall_ipv4_msg
+
+    - name: "Wait for IPv4 message appear in serial port output file"
+      include_tasks: ../../common/dh_host_get_log.yml
+      vars:
+        vm_wait_log_name: "{{ vm_serial_port_file_path }}"
         vm_wait_log_msg: "{{ autoinstall_complete_msg }}"
         vm_wait_log_delay: 30
         vm_wait_log_retries: 300
