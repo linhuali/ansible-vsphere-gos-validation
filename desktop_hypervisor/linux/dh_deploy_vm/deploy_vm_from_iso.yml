@@ -7,6 +7,7 @@
     boot_disk_controller: "{{ dh_vm_boot_disk_controller | lower if (dh_vm_boot_disk_controller is defined and dh_vm_boot_disk_controller) else 'paravirtual' }}"
     firmware: "{{ dh_vm_firmware if (dh_vm_firmware | lower is defined and dh_vm_firmware) else 'efi' }}"
     network_adapter_type: "{{ dh_vm_network_adapter | lower if (dh_vm_network_adapter is defined and dh_vm_network_adapter) else 'vmxnet3' }}"
+    guest_id: "{{ dh_vm_guest_id }}"
     autoinstall_start_msg: ""
     autoinstall_ipv4_msg: ""
     autoinstall_complete_msg: "Autoinstall is completed."
@@ -78,7 +79,7 @@
       when: dh_guest_unattend_install_conf is defined and dh_guest_unattend_install_conf
       include_tasks: ../../../linux/deploy_vm/create_unattend_install_iso.yml
       vars:
-        guest_id: "{{ dh_vm_guest_id }}"
+        #guest_id: "{{ dh_vm_guest_id }}"
         unattend_install_conf: "{{ dh_guest_unattend_install_conf }}"
         vm_username: "{{ dh_vm_username }}"
         vm_password: "{{ dh_vm_password }}"
