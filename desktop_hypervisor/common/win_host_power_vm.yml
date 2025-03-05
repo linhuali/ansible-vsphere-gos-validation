@@ -13,7 +13,7 @@
   include_tasks: ../../windows/utils/win_check_file_exist.yml
   vars:
     win_check_file_exist_file: "{{ psexec_path_remote }}"
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 - name: "Copy PsExec64.exe tool to Windows host if it doesn't exist"
   when: not win_check_file_exist_result
@@ -21,14 +21,14 @@
   vars:
     src_path_local: "{{ psexec_path_local }}"
     dest_path_remote: "{{ psexec_path_remote }}"
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 - name: "Get Session ID with cmd command"
   ansible.windows.win_shell: for /f "tokens=2-4" %a in ('query session %username%') do @if "%c"=="Active" echo %b
   args:
     executable: cmd
   register: session_id
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
 
 - name: "vmrun power operation: {{ power_option }} vm"
   community.windows.win_psexec:
@@ -44,7 +44,7 @@
     hostnames:
     - localhost
   register: power_vm_result
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   async: 300
   poll: 30
   # become: true
@@ -60,7 +60,7 @@
   vars:
     win_powershell_cmd: >-
       Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList "-T ws list" -NoNewWindow
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 - name: "Set fact of VM existence status"
   ansible.builtin.set_fact:

@@ -38,13 +38,13 @@
 
 - name: "Create new VM disk file"
   ansible.builtin.shell: "{{ lin_vdisk_manager_cmd }}"
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
 
 - name: "Get disk file status"
   include_tasks: ../../linux/utils/get_file_stat_info.yml
   vars:
     guest_file_path: "{{ disk_file_path }}"
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 - name: "Make sure disk file created"
   ansible.builtin.assert:

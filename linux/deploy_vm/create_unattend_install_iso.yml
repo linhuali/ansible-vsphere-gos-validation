@@ -137,7 +137,7 @@
       vars:
         transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ new_os_installation_iso }}"
         transfer_file_remote_dest: "{{ dh_vm_path }}"
-        transfer_file_remote_server: "{{ host_machine_hostname }}"
+        transfer_file_remote_server: "{{ host_machine_ipaddress }}"
         transfer_file_remote_mode: "0777"
 
 - name: "Display facts of unattend install config file and ISOs"
@@ -189,6 +189,6 @@
       vars:
         transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ item }}"
         transfer_file_remote_dest: "{{ dh_vm_unattend_iso_path }}"
-        transfer_file_remote_server: "{{ host_machine_hostname }}"
+        transfer_file_remote_server: "{{ host_machine_ipaddress }}"
         transfer_file_remote_mode: "0777"
       with_items: "{{ transferred_unattend_iso_list }}"
