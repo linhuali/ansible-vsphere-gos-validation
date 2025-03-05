@@ -32,7 +32,7 @@
 - name: "Open www.vmware.com with firefox"
   ansible.builtin.shell: |
     {{ dh_host_vmrun_path }} -gu {{ autologin_user }} -gp {{ dh_vm_password }} runProgramInGuest {{ dh_vm_vmx_path }} -noWait /usr/bin/firefox --display=:{{ display_port }} https://www.vmware.com
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   become: true
   become_user: "{{ dh_vm_username }}"
   register: vmrun_result
@@ -49,14 +49,14 @@
   ansible.builtin.shell: |
     {{ dh_host_vmrun_path }} -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} readVariable {{ dh_vm_vmx_path }} runtimeConfig remotedisplay.vnc.port
   register: vnc_port
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   become: true
   become_user: "{{ dh_vm_username }}"
   async: 120
   poll: 10
 
 - name: "Take a VM screenshot after browser test"
-  ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ vnc_port.stdout_lines[0] }} capture {{ current_test_log_folder }}/vm_screenshot_after_check_browser_test.png"
+  ansible.builtin.shell: "vncdo -v -s {{ host_machine_ipaddress }}::{{ vnc_port.stdout_lines[0] }} capture {{ current_test_log_folder }}/vm_screenshot_after_check_browser_test.png"
   register: vncdo_take_screenshot
   async: 120
   poll: 10

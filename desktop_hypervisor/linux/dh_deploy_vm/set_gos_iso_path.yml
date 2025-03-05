@@ -33,7 +33,7 @@
       include_tasks: ../../../linux/utils/get_file_stat_info.yml
       vars:
         guest_file_path: "{{ dh_guest_iso_host_path }}"
-        vm_guest_ip: "{{ host_machine_hostname }}"
+        vm_guest_ip: "{{ host_machine_ipaddress }}"
     - name: "Download ISO file to Host when it doesn't exist"
       when: not guest_file_exists
       block:
@@ -43,7 +43,7 @@
             dest: "{{ dh_guest_iso_host_path }}"
             mode: "0777"
             validate_certs: false
-          delegate_to: "{{ host_machine_hostname }}"
+          delegate_to: "{{ host_machine_ipaddress }}"
           register: download_iso_result
         - name: "Check downloading ISO file succeed"
           ansible.builtin.assert:
@@ -76,7 +76,7 @@
       include_tasks: ../../../linux/utils/get_file_stat_info.yml
       vars:
         guest_file_path: "{{ dh_guest_iso_path }}"
-        vm_guest_ip: "{{ host_machine_hostname }}"
+        vm_guest_ip: "{{ host_machine_ipaddress }}"
 
     - name: "Make sure guest OS image file exists"
       ansible.builtin.assert:
