@@ -1255,13 +1255,15 @@ class CallbackModule(CallbackBase):
             # Print testbed information
             vcenter_hostname = self.testing_vars.get('vcenter_hostname', '')
             esxi_hostname = self.testing_vars.get('esxi_hostname', '')
-            workstation_hostname = self.testing_vars.get('host_machine_hostname', '')
+            workstation_hostname = self.testing_vars.get('host_machine_ipaddress', '')
             testbed_info = TestbedInfo(vcenter_hostname, esxi_hostname, workstation_hostname, self._ansible_gosv_facts)
             self.logger.info(str(testbed_info))
             self._display.display(str(testbed_info), color=C.COLOR_VERBOSE)
 
             # Print VM information
             vm_name = self.testing_vars.get('vm_name', None)
+            if workstation_hostname:
+                vm_name = self.testing_vars.get('dh_vm_name', None)
             vm_info = VmDetailInfo(vm_name, self._ansible_gosv_facts)
             self.logger.info(str(vm_info))
             self._display.display(str(vm_info), color=C.COLOR_VERBOSE)

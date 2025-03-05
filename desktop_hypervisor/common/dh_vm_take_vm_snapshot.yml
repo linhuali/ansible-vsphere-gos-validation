@@ -17,14 +17,14 @@
       include_tasks: ../../windows/utils/win_execute_cmd.yml
       vars:
         win_powershell_cmd: "{{ win_vmrun_take_snapshot_cmd }}"
-        vm_guest_ip: "{{ host_machine_hostname }}"
+        vm_guest_ip: "{{ host_machine_ipaddress }}"
 
     - name: "Get VM snapshot status"
       include_tasks: ../../windows/utils/win_execute_cmd.yml
       vars:
         win_powershell_cmd: >-
           Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws listSnapshots "{{ dh_vm_vmx_path }}"' -NoNewWindow
-        vm_guest_ip: "{{ host_machine_hostname }}"
+        vm_guest_ip: "{{ host_machine_ipaddress }}"
 
     - name: "Display the VM snapshots"
       ansible.builtin.debug: var=win_powershell_cmd_output.stdout_lines
@@ -35,7 +35,7 @@
     - name: "Taking a snapshot of VM"
       ansible.builtin.shell: |
         {{ dh_host_vmrun_path }} -T ws snapshot {{ dh_vm_vmx_path }} {{ take_snapshot_name }}
-      delegate_to: "{{ host_machine_hostname }}"
+      delegate_to: "{{ host_machine_ipaddress }}"
       become: true
       become_user: "{{ dh_vm_username }}"
       register: vmrun_result
@@ -47,7 +47,7 @@
     - name: "Get VM snapshot status"
       ansible.builtin.shell: |
         {{ dh_host_vmrun_path }} -T ws listSnapshots {{ dh_vm_vmx_path }}
-      delegate_to: "{{ host_machine_hostname }}"
+      delegate_to: "{{ host_machine_ipaddress }}"
       become: true
       become_user: "{{ dh_vm_username }}"
       register: vmrun_result
