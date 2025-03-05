@@ -7,7 +7,7 @@
 - name: "Execute Workstation vmrun"
   ansible.builtin.shell: |
     vmrun -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} {{ power_option }} {{ dh_vm_vmx_path }} {{ extra_option }}
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   become: true
   become_user: "{{ dh_vm_username }}"
   register: ws_vmrun_power
@@ -29,7 +29,7 @@
 - name: "Get VM status"
   ansible.builtin.shell: |
     vmrun -T ws list
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   become: true
   become_user: "{{ dh_vm_username }}"
   register: ws_vmrun_list

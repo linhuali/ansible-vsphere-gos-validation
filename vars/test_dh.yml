@@ -8,9 +8,10 @@
 # For Desktop Hypervisor host machine
 # Set below parameters for the existing host machine IP address or hostname,
 # Linux SSH or Windows WinRM username and password.
-# These 3 parameters take precedence over below virtual machine as the host machine configuration in vars/test.yml.
+# These 4 parameters take precedence over below virtual machine as the host machine configuration in vars/test.yml.
 #
 host_machine_hostname: ""
+host_machine_ipaddress: ""
 host_machine_username: ""
 host_machine_password: ""
 

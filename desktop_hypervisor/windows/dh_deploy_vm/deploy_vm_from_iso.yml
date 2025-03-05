@@ -22,7 +22,7 @@
       include_tasks: ../../../windows/utils/win_check_file_exist.yml
       vars:
         win_check_file_exist_file: "{{ workstation_install_path }}\\windows-x86.iso"
-        vm_guest_ip: "{{ host_machine_hostname }}"
+        vm_guest_ip: "{{ host_machine_ipaddress }}"
       register: dh_vm_guest_tools
     - name: "Display the check result"
       ansible.builtin.debug: var=dh_vm_guest_tools
@@ -35,7 +35,7 @@
             dest: "{{ dh_host_installed_path }}"
             checksum: "{{ workstation_package_checksum | default(omit) }}"
             validate_certs: false
-          delegate_to: "{{ host_machine_hostname }}"
+          delegate_to: "{{ host_machine_ipaddress }}"
           register: download_tools_result
         - name: "Display the download result"
           ansible.builtin.debug: var=download_tools_result
@@ -55,7 +55,7 @@
   vars:
     win_powershell_cmd: >-
       if ($(Test-Path "{{ dh_vm_path }}\\{{ dh_vm_new_name }}")) {exit} else {New-Item -ItemType 'directory' -Path "{{ dh_vm_path }}\\{{ dh_vm_new_name }}"}
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 # Prepare Autounattend ISO file
 - name: "Set fact of Autounattend ISO file name"
@@ -81,7 +81,7 @@
   vars:
     src_path_local: "{{ local_cache }}/{{ unattend_install_iso }}"
     dest_path_remote: "{{ dh_vm_unattend_iso_path }}"
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 # Prepare VNC server config
 - name: "Set VNC server port when it's not configured"
@@ -119,7 +119,7 @@
   vars:
     src_path_local: "{{ dh_vm_vmx_file_local }}"
     dest_path_remote: "{{ dh_vm_vmx_path }}"
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 - name: "Power on VM to do Windows automatic install"
   include_tasks: ../../common/dh_host_power_vm.yml
@@ -139,7 +139,7 @@
   when: dh_vm_firmware | lower == 'efi'
   block:
     - name: "Send down, down, enter, enter keys"
-      ansible.builtin.shell: "vncdo -v -s {{ host_machine_hostname }}::{{ dh_vm_vnc_port }} key down pause 3 key down pause 3 key enter pause 3 key enter"
+      ansible.builtin.shell: "vncdo -v -s {{ host_machine_ipaddress }}::{{ dh_vm_vnc_port }} key down pause 3 key down pause 3 key enter pause 3 key enter"
       register: vncdo_send_keys
     - name: "Display the vncdotool sends keys result"
       ansible.builtin.debug: var=vncdo_send_keys

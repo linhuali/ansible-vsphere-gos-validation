@@ -11,18 +11,18 @@
       include_tasks: ../../windows/utils/win_execute_cmd.yml
       vars:
         win_powershell_cmd: "bcdedit.exe -set TESTSIGNING ON"
-        vm_guest_ip: "{{ host_machine_hostname }}"
+        vm_guest_ip: "{{ host_machine_ipaddress }}"
     - name: "Restart host before Workstation install"
       ansible.windows.win_reboot:
         reboot_timeout: 600
       register: restart_guest_os
-      delegate_to: "{{ host_machine_hostname }}"
+      delegate_to: "{{ host_machine_ipaddress }}"
 
 - name: "Check Workstation installation status in Windows host"
   include_tasks: ../../windows/utils/win_get_software_install_status.yml
   vars:
     win_software_name: "VMware Workstation"
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 - name: "Set fact of Workstation install status"
   ansible.builtin.set_fact:
     dh_host_installed: "{{ win_software_is_installed }}"
@@ -33,7 +33,7 @@
     win_powershell_cmd: >-
       Install-PackageProvider -Name Nuget -Confirm:$false -Force -ForceBootstrap;
       Get-Package -Name "VMware Workstation*" | Uninstall-Package
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 - name: "Initialize the facts of Workstation installation file"
   ansible.builtin.set_fact:
@@ -56,7 +56,7 @@
     dest: "{{ ws_install_file_path }}"
     checksum: "{{ workstation_package_checksum | default(omit) }}"
     validate_certs: false
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   register: download_ws_result
 - name: "Display the download result"
   ansible.builtin.debug: var=download_ws_result
@@ -122,7 +122,7 @@
 # win_command and win_psexec modules can launch the installation in guest
 - name: "Execute Workstation silent install"
   ansible.windows.win_command: "{{ ws_install_cmd }}"
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   register: ws_install_result
   failed_when:
     - ws_install_result.rc is defined
@@ -138,7 +138,7 @@
   ansible.windows.win_reboot:
     reboot_timeout: 600
   register: restart_guest_os
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
 - name: "Display the win_reboot result"
   ansible.builtin.debug: var=restart_guest_os
 
@@ -146,14 +146,14 @@
   include_tasks: ../../windows/utils/win_wait_installed_software.yml
   vars:
     win_software_name: "VMware Workstation"
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 - name: "Check network adapter version"
   include_tasks: ../../windows/utils/win_execute_cmd.yml
   vars:
     win_powershell_cmd: >-
       Get-NetAdapter | Select Name,InterfaceDescription,DriverVersion,DriverDate,DriverProvider
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 #- name: "Make sure VMware Workstation license registry configured"
 #  when:
@@ -165,7 +165,7 @@
 #      vars:
 #        win_powershell_cmd: >-
 #          Test-Path -Path "HKLM:\\software\\Wow6432Node\\VMware, Inc.\\VMware Workstation\\License.ws*"
-#        vm_guest_ip: "{{ host_machine_hostname }}"
+#        vm_guest_ip: "{{ host_machine_ipaddress }}"
 #    - name: "Check result"
 #      ansible.builtin.assert:
 #        that:
