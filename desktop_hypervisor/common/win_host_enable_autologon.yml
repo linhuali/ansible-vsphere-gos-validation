@@ -12,4 +12,4 @@
            Set-ItemProperty -Path $reg_winlogon_path -Name DefaultUserName -Value $username
            Set-ItemProperty -Path $reg_winlogon_path -Name DefaultPassword -Value $password
              }
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"

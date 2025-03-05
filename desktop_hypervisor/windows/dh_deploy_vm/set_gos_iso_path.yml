@@ -24,7 +24,7 @@
         url: "{{ dh_guest_iso_full_url }}"
         dest: "{{ dh_host_download_path }}{{ dh_guest_iso_file_name }}"
         validate_certs: false
-      delegate_to: "{{ host_machine_hostname }}"
+      delegate_to: "{{ host_machine_ipaddress }}"
     - name: "Set fact of ISO file path"
       ansible.builtin.set_fact:
         dh_guest_iso_path: "{{ dh_host_download_path }}{{ dh_guest_iso_file_name }}"
@@ -57,7 +57,7 @@
       include_tasks: ../../../windows/utils/win_execute_cmd.yml
       vars:
         win_powershell_cmd: "(Get-Volume | where-object {$_.DriveType -eq 'CD-ROM' -and $_.OperationalStatus -eq 'OK'}).DriveLetter"
-        vm_guest_ip: "{{ host_machine_hostname }}"
+        vm_guest_ip: "{{ host_machine_ipaddress }}"
     - name: "Set fact of guest OS image file path"
       when:
         - win_powershell_cmd_output.stdout_lines is defined
@@ -72,7 +72,7 @@
       include_tasks: ../../../windows/utils/win_check_file_exist.yml
       vars:
         win_check_file_exist_file: "{{ dh_guest_iso_path }}"
-        vm_guest_ip: "{{ host_machine_hostname }}"
+        vm_guest_ip: "{{ host_machine_ipaddress }}"
 #        win_check_file_become: true
 #        win_check_file_become_user: "{{ host_machine_username }}"
 

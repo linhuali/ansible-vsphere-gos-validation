@@ -63,7 +63,7 @@
         - name: "Get host VM VBS status"
           include_tasks: ../../windows/utils/win_get_vbs_guest.yml
           vars:
-            vm_guest_ip: "{{ host_machine_hostname }}"
+            vm_guest_ip: "{{ host_machine_ipaddress }}"
           when:
             - host_machine_type == "windows"
             - not is_vsphere_env

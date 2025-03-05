@@ -16,13 +16,13 @@
   include_tasks: ../../windows/utils/win_execute_cmd.yml
   vars:
     win_powershell_cmd: "reg add 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters' /v 'AllowInsecureGuestAuth' /t REG_DWORD /d 1 /f"
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 - name: "Enable NFS client in Windows host"
   include_tasks: ../../windows/utils/win_install_nfs_client.yml
   vars:
     win_target_type: "{{ guest_os_product_type | lower }}"
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
 
 # Change using this powershell command:
 # New-PSDrive -Name X -Root "{{ iso_nfs_server_path }}" -Persist -PSProvider FileSystem -Scope Global
@@ -48,7 +48,7 @@
 
 - name: "Mount NFS datastore in Windows host"
   ansible.windows.win_command: "{{ win_host_mount_cmd }}"
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   become: true
   become_method: runas
   become_user: "{{ host_machine_username }}"
@@ -57,7 +57,7 @@
   include_tasks: ../../windows/utils/win_execute_cmd.yml
   vars:
     win_powershell_cmd: "Test-Path X:"
-    vm_guest_ip: "{{ host_machine_hostname }}"
+    vm_guest_ip: "{{ host_machine_ipaddress }}"
     win_execute_cmd_ignore_error: true
     win_execute_cmd_become: true
     win_execute_cmd_become_user: "{{ host_machine_username }}"

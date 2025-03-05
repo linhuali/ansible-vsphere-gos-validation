@@ -36,12 +36,12 @@
         dest: "{{ firefox_local_path }}"
         validate_certs: false
         url_timeout: 180
-      delegate_to: "{{ host_machine_hostname }}"
+      delegate_to: "{{ host_machine_ipaddress }}"
 
 - name: "Copy firefox setup.exe from host to guest with vmrun"
   ansible.windows.win_command:
     cmd: '"{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} copyFileFromHostToGuest "{{ dh_vm_vmx_path }}" {{ firefox_local_path }} {{ firefox_local_path }}'
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   async: 300
   poll: 60
 
@@ -52,7 +52,7 @@
 - name: "Install firefox in guest with vmrun"
   ansible.windows.win_command:
     cmd: '{{ vmrun_with_powershell }} {{ powershell_cmd }}'
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   async: 300
   poll: 60
 
@@ -65,7 +65,7 @@
 - name: "Open www.vmware.com with firefox"
   ansible.windows.win_command:
     cmd: '{{ vmrun_with_powershell}} {{ powershell_cmd }}'
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   register: vmrun_result
   failed_when:
     - vmrun_result.stderr is defined
@@ -80,7 +80,7 @@
   ansible.windows.win_command:
     cmd: '"{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} readVariable "{{ dh_vm_vmx_path }}" runtimeConfig remotedisplay.vnc.port'
   register: vnc_port
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
 
 - name: "Take a VM screenshot after browser test"
   include_tasks: ../../common/dh_vm_take_screenshot.yml

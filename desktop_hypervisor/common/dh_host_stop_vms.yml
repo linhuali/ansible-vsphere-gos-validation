@@ -9,7 +9,7 @@
       Foreach ($RunningVM in $RunningVMs) {
         .\vmrun stop "$RunningVM"
       }
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   when:
     - host_machine_type == "windows"
     - dh_host_installed
@@ -18,7 +18,7 @@
   ansible.builtin.shell: |
     vms=`vmrun list | grep -e '.*.vmx'`
     for vm in $vms; do vmrun stop $vm; done
-  delegate_to: "{{ host_machine_hostname }}"
+  delegate_to: "{{ host_machine_ipaddress }}"
   become: true
   become_user: "{{ dh_vm_username }}"
   async: 180
