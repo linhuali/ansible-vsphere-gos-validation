@@ -10,7 +10,7 @@
   when: guest_os_ansible_distribution in ['CentOS', 'VMware Photon OS', 'Debian']
 
 - name: "Add package repositories for {{ guest_os_ansible_distribution }}"
-  when: linux_ovt_repo_url is undefined or not linux_ovt_repo_url
+  when: dh_linux_ovt_repo_url is undefined or not dh_linux_ovt_repo_url
   block:
     - name: "Add a local package repository from ISO image for {{ guest_os_ansible_distribution }}"
       include_tasks: ../../../linux/utils/add_local_dvd_repo.yml
@@ -24,8 +24,8 @@
   include_tasks: ../../../linux/utils/add_extra_online_repo.yml
   vars:
     extra_repo_name: "open-vm-tools-repo"
-    extra_repo_baseurl: "{{ linux_ovt_repo_url }}"
-  when: linux_ovt_repo_url is defined and linux_ovt_repo_url
+    extra_repo_baseurl: "{{ dh_linux_ovt_repo_url }}"
+  when: dh_linux_ovt_repo_url is defined and dh_linux_ovt_repo_url
 
 - name: "Update package metadata"
   include_tasks: ../../../linux/utils/repo_update.yml
@@ -54,7 +54,7 @@
 - name: "Eject CDROM device from guest OS"
   include_tasks: ../../../linux/utils/eject_cdrom_in_guest.yml
   when:
-    - linux_ovt_repo_url is undefined or not linux_ovt_repo_url
+    - dh_linux_ovt_repo_url is undefined or not dh_linux_ovt_repo_url
     - guest_os_ansible_distribution in ['SLES', 'SLED', 'RedHat', 'Rocky', 'AlmaLinux', 'openSUSE Leap']
 
 - name: "Reset guest OS in desktop hypervisor"
@@ -63,7 +63,7 @@
       include_tasks: ../../common/dh_host_power_vm.yml
       vars:
         vm_power_option: "reset"
-        vmrun_extra_option: "soft"
+        vmrun_extra_option: "hard"
     - name: "Check VM connection is not broken"
       include_tasks: ../../../common/vm_wait_connection.yml
       vars:
