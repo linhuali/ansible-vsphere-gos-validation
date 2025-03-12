@@ -5,10 +5,10 @@
 #   This test case is used for test VMware Tools installation in Windows guest OS.
 # If no VMware Tools installed in guest OS, this test case will install VMware Tools.
 # If there is VMware Tools already installed in guest OS:
-# (1) by default 'update_vmtools' will be set to true, this test case will uninstall
+# (1) by default 'dh_update_vmtools' will be set to true, this test case will uninstall
 # existing VMware Tools firstly, then install VMware Tools when VMware Tools ISO source
 # parameters are configured correctly,
-# (2) if 'update_vmtools' is set to false, this test case will be skipped when VMware Tools
+# (2) if 'dh_update_vmtools' is set to false, this test case will be skipped when VMware Tools
 # service is running, or test case will fail when VMware Tools service is not running.
 #
 - name: wintools_complete_install_verify
@@ -51,15 +51,15 @@
 
         - name: "Set update VMware tools by default"
           ansible.builtin.set_fact:
-            update_vmtools: true
-          when: update_vmtools is undefined
+            dh_update_vmtools: true
+          when: dh_update_vmtools is undefined
 
-        - name: "VM has vmtools installed and update_vmtools is set false"
+        - name: "VM has vmtools installed and dh_update_vmtools is set false"
           include_tasks: ../../../common/skip_test_case.yml
           vars:
-            skip_msg: "Test case '{{ ansible_play_name }}' is skipped because update_vmtools is set to: {{ update_vmtools }}"
+            skip_msg: "Test case '{{ ansible_play_name }}' is skipped because dh_update_vmtools is set to: {{ dh_update_vmtools }}"
             skip_reason: "Skipped"
-          when: not update_vmtools | bool
+          when: not dh_update_vmtools | bool
 
         - name: "Download VMware Tools ISO from URL"
           include_tasks: download_vmtools.yml

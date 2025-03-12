@@ -38,15 +38,15 @@
             skip_reason: "Not Supported"
 
         - name: "Set update VMware tools by default"
-          when: update_vmtools is undefined
+          when: dh_update_vmtools is undefined
           ansible.builtin.set_fact:
-            update_vmtools: true
+            dh_update_vmtools: true
 
-        - name: "VM has open-vm-tools installed and update_vmtools is set false"
-          when: not update_vmtools | bool
+        - name: "VM has open-vm-tools installed and dh_update_vmtools is set false"
+          when: not dh_update_vmtools | bool
           include_tasks: ../../../common/skip_test_case.yml
           vars:
-            skip_msg: "Test case '{{ ansible_play_name }}' is skipped because update_vmtools is set to: {{ update_vmtools }}"
+            skip_msg: "Test case '{{ ansible_play_name }}' is skipped because dh_update_vmtools is set to: {{ dh_update_vmtools }}"
             skip_reason: "Skipped"
 
         # Initialize variables
@@ -59,7 +59,7 @@
           when:
             - vmtools_info_from_vmtoolsd is defined
             - vmtools_info_from_vmtoolsd
-            - update_vmtools
+            - dh_update_vmtools
             - dh_guest_id is not match('.*centos7.*')
             - dh_guest_id is not match('.*rhel7.*')
             - dh_guest_id is not match('.*opensuse.*')
@@ -79,7 +79,8 @@
           when:
             - uninstall_tools is defined
             - uninstall_tools
-          include_tasks: ../../../linux/open_vm_tools/uninstall_ovt.yml
+          #include_tasks: ../../../linux/open_vm_tools/uninstall_ovt.yml
+          include_tasks: uninstall_ovt.yml
           vars:
             vm_guest_ip: "{{ dh_vm_guest_ip }}"
 
@@ -104,7 +105,7 @@
           include_tasks: ../../common/dh_host_power_vm.yml
           vars:
             vm_power_option: "reset"
-            vmrun_extra_option: "soft"
+            vmrun_extra_option: "hard"
 
         - name: "Check VM connection is not broken"
           include_tasks: ../../../common/vm_wait_connection.yml

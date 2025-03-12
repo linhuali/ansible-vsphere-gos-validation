@@ -133,5 +133,13 @@ dh_guest_windows_product_key: ""
 # Each retry take 5 minutes
 dh_guest_getip_retry_times: 10
 
+# Update VMware Tools or open-vm-tools in Guest
+dh_update_vmtools: true
+# Install VMware Tools from the downloaded ISO file for Windows
+dh_vmtools_url_path: "https://packages.vmware.com/tools/releases/12.5.0/windows/VMware-tools-windows-12.5.0-24276846.iso"
+# Install open-vm-tools for Linux
+dh_linux_ovt_install_type: package
+dh_linux_ovt_repo_url: "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os"
+
 # URL of guest ovf
 dh_guest_ovf_url: ""
