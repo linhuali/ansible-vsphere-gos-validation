@@ -42,3 +42,10 @@
       include_tasks: ../../common/dh_host_power_vm.yml
       vars:
         vm_power_option: "stop"
+
+    - name: "Remove OVF"
+      include_tasks: ../../../windows/utils/win_execute_cmd.yml
+      vars:
+        win_powershell_cmd: >-
+          if ($(Test-Path "{{ dh_vm_path }}\\{{ dh_vm_new_name }}")) {Remove-Item "{{ dh_vm_path }}\{{ dh_vm_new_name }}" -Recurse -Force}
+        vm_guest_ip: "{{ host_machine_ipaddress }}"
