@@ -64,8 +64,8 @@
         - name: "Download VMware Tools ISO from URL"
           include_tasks: download_vmtools.yml
           when:
-            - vmtools_url_path is defined
-            - vmtools_url_path
+            - dh_vmtools_url_path is defined
+            - dh_vmtools_url_path
 
         - name: "Install vmtools in Windows Host"
           when:
@@ -94,15 +94,16 @@
               include_tasks: ../../../windows/wintools_complete_install_verify/enable_test_signing.yml
               when: is_development_tools is defined and is_development_tools | bool
 
-            - name: "Prepare VMware Tools install"
-              include_tasks: ../../../windows/wintools_complete_install_verify/prepare_vmtools_install.yml
-              vars:
-                vm_guest_ip: "{{ dh_vm_guest_ip }}"
+            #- name: "Prepare VMware Tools install"
+            #  include_tasks: ../../../windows/wintools_complete_install_verify/prepare_vmtools_install.yml
+            #  vars:
+            #    vm_guest_ip: "{{ dh_vm_guest_ip }}"
 
             - name: "Install VMware Tools"
-              include_tasks: ../../../windows/wintools_complete_install_verify/install_vmtools.yml
+              include_tasks: install_vmtools.yml
               vars:
                 vm_guest_ip: "{{ dh_vm_guest_ip }}"
+                vm_username: "{{ host_machine_username }}"
                 vmtools_is_installed: true
 
             - name: "Verify VMware Tools"
@@ -121,3 +122,10 @@
           include_tasks: ../../common/dh_test_rescue.yml
           vars:
             exit_testing_when_fail: false
+      always:
+        - name: "Get VMware Tools install log file"
+          include_tasks: ../../../windows/wintools_complete_install_verify/get_vmtools_install_log.yml
+          vars:
+            vm_guest_ip: "{{ dh_vm_guest_ip }}"
+            vm_username: "{{ host_machine_username }}"
+          when: get_vmtools_install_log is defined and get_vmtools_install_log

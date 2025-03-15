@@ -3,14 +3,14 @@
 ---
 - name: "Initialize the facts of VMware tools ISO file"
   ansible.builtin.set_fact:
-    vmtools_file_name: "{{ vmtools_url_path | ansible.builtin.basename }}"
+    vmtools_file_name: "{{ dh_vmtools_url_path | ansible.builtin.basename }}"
 
 - name: "Check VMware tools file name"
   ansible.builtin.assert:
     that:
       - vmtools_file_name
       - vmtools_file_name.split('.')[-1] | lower == "iso"
-    fail_msg: "Get VMware Tools file name '{{ vmtools_file_name }}' from configured URL '{{ vmtools_url_path }}', file suffix is not 'iso' for Windows host."
+    fail_msg: "Get VMware Tools file name '{{ vmtools_file_name }}' from configured URL '{{ dh_vmtools_url_path }}', file suffix is not 'iso' for Windows host."
 
 - name: "Set fact of VMware tools file download path and log path"
   ansible.builtin.set_fact:
@@ -18,7 +18,7 @@
 
 - name: "Download VMware tools file in Windows host"
   ansible.windows.win_get_url:
-    url: "{{ vmtools_url_path }}"
+    url: "{{ dh_vmtools_url_path }}"
     dest: "{{ dh_vm_tools_path }}"
     checksum: "{{ vmtools_package_checksum | default(omit) }}"
     validate_certs: false
