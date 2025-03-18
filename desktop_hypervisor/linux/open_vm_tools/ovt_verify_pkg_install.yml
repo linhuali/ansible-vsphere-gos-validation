@@ -14,6 +14,27 @@
   tasks:
     - name: "Test case block"
       block:
+        - name: "Set update VMware tools by default"
+          when: dh_update_vmtools is undefined
+          ansible.builtin.set_fact:
+            dh_update_vmtools: true
+
+        - name: "VM has open-vm-tools installed and dh_update_vmtools is set false"
+          when: not dh_update_vmtools | bool
+          include_tasks: ../../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Test case '{{ ansible_play_name }}' is skipped because dh_update_vmtools is set to: {{ dh_update_vmtools }}"
+            skip_reason: "Skipped"
+
+        - name: "Skip test case"
+          when: >
+            dh_guest_id is match('.*other.*linux.*') or
+            dh_guest_id is match('.*rhel(5|6).*')
+          include_tasks: ../../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Skip test case due to {{ dh_guest_id }} is not supported by {{ current_testcase_name }}'"
+            skip_reason: "Not Supported"
+
         - name: "Test setup"
           include_tasks: ../../common/dh_test_setup.yml
           vars:
@@ -27,27 +48,6 @@
               - dh_vm_exists
               - dh_vm_vmx_exists
             fail_msg: "VM with path '{{ dh_vm_vmx_path }}' is not exists, please deploy vm first."
-
-        - name: "Skip test case"
-          when: >
-            dh_guest_id is match('.*other.*linux.*') or
-            dh_guest_id is match('.*rhel(5|6).*')
-          include_tasks: ../../../common/skip_test_case.yml
-          vars:
-            skip_msg: "Skip test case due to {{ dh_guest_id }} is not supported by {{ current_testcase_name }}'"
-            skip_reason: "Not Supported"
-
-        - name: "Set update VMware tools by default"
-          when: dh_update_vmtools is undefined
-          ansible.builtin.set_fact:
-            dh_update_vmtools: true
-
-        - name: "VM has open-vm-tools installed and dh_update_vmtools is set false"
-          when: not dh_update_vmtools | bool
-          include_tasks: ../../../common/skip_test_case.yml
-          vars:
-            skip_msg: "Test case '{{ ansible_play_name }}' is skipped because dh_update_vmtools is set to: {{ dh_update_vmtools }}"
-            skip_reason: "Skipped"
 
         # Initialize variables
         - name: "Initialize variables for installing open-vm-tools"
