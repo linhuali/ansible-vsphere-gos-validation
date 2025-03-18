@@ -110,6 +110,9 @@ class TestbedInfo(object):
         self.vcenter_info = vSphereInfo('vCenter', vcenter_hostname)
         self.esxi_info = vSphereInfo('ESXi', esxi_hostname)
         self.workstation_info = vSphereInfo('WS', workstation_hostname)
+        if workstation_hostname is not None:
+            self.vcenter_info = vSphereInfo('vCenter', '')
+            self.esxi_info = vSphereInfo('ESXi', '')
         self.set_vcenter_info(ansible_gosv_facts)
         self.set_esxi_info(ansible_gosv_facts)
         self.set_workstation_info(ansible_gosv_facts)
