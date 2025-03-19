@@ -269,8 +269,6 @@
   #    vars:
   #      exit_testing_when_fail: true
   always:
-    - name: "Collect VM deployment logs"
-      include_tasks: ../../../linux/deploy_vm/collect_vm_logs.yml
     - name: "Get the serial log to local"
       include_tasks: ../../common/dh_get_file.yml
       vars:

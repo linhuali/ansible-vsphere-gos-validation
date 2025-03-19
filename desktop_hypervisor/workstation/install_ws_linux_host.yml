@@ -107,14 +107,14 @@
 - name: "Install Workstation on {{ host_machine_ipaddress }}"
   block:
     - name: "Execute Workstation silent install"
-      ansible.builtin.shell: "sudo sh {{ ws_install_cmd }}"
+      ansible.builtin.shell: "sudo sh {{ ws_install_cmd }} 2>&1 | tee -a /tmp/vmware-installer.log"
       delegate_to: "{{ host_machine_ipaddress }}"
       register: ws_install_result
       #failed_when:
       #  - ws_install_result.stderr is defined
       #  - ws_install_result.stderr
     - name: "Build VMware Modules"
-      ansible.builtin.shell: "vmware-modconfig --console --install-all"
+      ansible.builtin.shell: "vmware-modconfig --console --install-all 2>&1 | tee -a /tmp/vmware-modconfig.log"
       delegate_to: "{{ host_machine_ipaddress }}"
       register: ws_module_build_result
       failed_when:
@@ -131,6 +131,17 @@
     #    reboot_timeout: 300
     #  delegate_to: "{{ host_machine_ipaddress }}"
     #  register: host_reboot_result
+  always:
+    - name: "Get the vmware-installer log to local"
+      include_tasks: ../common/dh_get_file.yml
+      vars:
+        file_src_path: "/tmp/vmware-installer.log"
+        file_dst_path: "{{ current_test_log_folder }}"
+    - name: "Get the vmware-modconfig log to local"
+      include_tasks: ../common/dh_get_file.yml
+      vars:
+        file_src_path: "/tmp/vmware-modconfig.log"
+        file_dst_path: "{{ current_test_log_folder }}"
 
 - name: "Get Workstation build and version"
   when:
