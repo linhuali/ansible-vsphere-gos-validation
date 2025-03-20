@@ -7,7 +7,7 @@
   vars:
     win_powershell_cmd: >-
       Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws listSnapshots "{{ dh_vm_vmx_path }}"' -NoNewWindow
-    vm_guest_ip: "{{ host_machine_ipaddress }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
   register: vm_snapshot_facts
 
 
@@ -15,7 +15,7 @@
   when: host_machine_type == "linux"
   ansible.builtin.shell: |
     {{ dh_host_vmrun_path }} -T ws listSnapshots {{ dh_vm_vmx_path }}
-  delegate_to: "{{ host_machine_ipaddress }}"
+  delegate_to: "{{ host_machine_hostname }}"
   become: true
   become_user: "{{ dh_vm_username }}"
   register: vm_snapshot_facts

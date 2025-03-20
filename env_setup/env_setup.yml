@@ -27,9 +27,9 @@
       block:
         - name: "Not use single host machine"
           ansible.builtin.debug:
-            msg: "Not all parameters 'host_machine_ipaddress', 'host_machine_username', 'host_machine_password', 'host_machine_type' are set or set to the valid values, will try to use configured vSphere testbed and VM info in vars/test.yml."
+            msg: "Not all parameters 'host_machine_hostname', 'host_machine_username', 'host_machine_password', 'host_machine_type' are set or set to the valid values, will try to use configured vSphere testbed and VM info in vars/test.yml."
           when: >
-            (host_machine_ipaddress is undefined or not host_machine_ipaddress) or
+            (host_machine_hostname is undefined or not host_machine_hostname) or
             (host_machine_username is undefined or not host_machine_username) or
             (host_machine_password is undefined or not host_machine_password) or
             (host_machine_type is undefined or host_machine_type | lower not in ['windows', 'linux'])
@@ -37,7 +37,7 @@
           ansible.builtin.set_fact:
             is_vsphere_env: false
           when:
-            - host_machine_ipaddress is defined and host_machine_ipaddress
+            - host_machine_hostname is defined and host_machine_hostname
             - host_machine_username is defined and host_machine_username
             - host_machine_password is defined and host_machine_password
             - host_machine_type is defined and host_machine_type | lower in ['windows', 'linux']

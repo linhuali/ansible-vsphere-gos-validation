@@ -21,7 +21,7 @@
       vars:
         win_powershell_cmd: >-
           Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList "-T ws list" -NoNewWindow
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
 
     - name: "Set fact of running VM exists"
       when:
@@ -40,7 +40,7 @@
           include_tasks: ../../windows/utils/win_check_file_exist.yml
           vars:
             win_check_file_exist_file: "{{ dh_vm_vmx_path }}"
-            vm_guest_ip: "{{ host_machine_ipaddress }}"
+            vm_guest_ip: "{{ host_machine_hostname }}"
         - name: "Set fact of VM vmx file existence status"
           ansible.builtin.set_fact:
             dh_vm_vmx_check_exist: "{{ win_check_file_exist_result }}"
@@ -52,7 +52,7 @@
       ansible.builtin.shell: "vmrun -T ws list"
       become: true
       become_user: "{{ dh_vm_username }}"
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       register: vmrun_list_result
 
     - name: "Set fact of running VM exists"
@@ -72,7 +72,7 @@
             path: "{{ dh_vm_vmx_path }}"
           register: stat_result
           ignore_errors: true
-          delegate_to: "{{ host_machine_ipaddress }}"
+          delegate_to: "{{ host_machine_hostname }}"
           become: true
           become_user: "{{ dh_vm_username }}"
         - name: "Set fact of VM vmx file existence status"

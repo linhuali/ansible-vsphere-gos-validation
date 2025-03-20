@@ -40,7 +40,7 @@
   include_tasks: ../../windows/utils/win_check_file_exist.yml
   vars:
     win_check_file_exist_file: "{{ dh_host_vdisk_manager_path }}"
-    vm_guest_ip: "{{ host_machine_ipaddress }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
 - name: "Make sure vmware-vdiskmanager.exe tool exists"
   ansible.builtin.assert:
     that:
@@ -51,7 +51,7 @@
   include_tasks: ../../windows/utils/win_execute_cmd.yml
   vars:
     win_powershell_cmd: "{{ win_vdisk_manager_cmd }}"
-    vm_guest_ip: "{{ host_machine_ipaddress }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
 #    win_execute_cmd_become: true
 #    win_execute_cmd_become_user: "{{ host_machine_username }}"
 
@@ -59,7 +59,7 @@
   include_tasks: ../../windows/utils/win_check_file_exist.yml
   vars:
     win_check_file_exist_file: "{{ disk_file_path }}"
-    vm_guest_ip: "{{ host_machine_ipaddress }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
 #    win_check_file_become: true
 #    win_check_file_become_user: "{{ host_machine_username }}"
 

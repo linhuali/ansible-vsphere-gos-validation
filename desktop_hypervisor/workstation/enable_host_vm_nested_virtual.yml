@@ -32,4 +32,4 @@
 
 - name: "Set host machine IP to be variable 'vm_guest_ip' used in utils tasks"
   ansible.builtin.set_fact:
-    host_machine_ipaddress: "{{ vm_guest_ip }}"
+    host_machine_hostname: "{{ vm_guest_ip }}"

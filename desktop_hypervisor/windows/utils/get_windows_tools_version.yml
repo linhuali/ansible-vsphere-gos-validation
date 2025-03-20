@@ -27,7 +27,7 @@
     - vmtools_version_build.stdout_lines | length != 0
     - "'build' in vmtools_version_build.stdout_lines[0]"
   ignore_errors: true
-  delegate_to: "{{ host_machine_ipaddress }}"
+  delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Print VMTools version and build"
   ansible.builtin.debug: var=vmtools_version_build

@@ -15,7 +15,7 @@
     - name: "Get Windows machine manufacturer"
       include_tasks: ../../windows/utils/win_get_manufacturer.yml
       vars:
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
     - name: "Set fact of host machine is virtual machine info"
       when: "'VMware' in win_manufacturer"
       ansible.builtin.set_fact:
@@ -29,7 +29,7 @@
     - name: "Get Windows nested virtualization status"
       include_tasks: ../../windows/utils/win_get_firmware_virtual.yml
       vars:
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
     - name: "Set fact of host VM nested virtualization status"
       ansible.builtin.set_fact:
         dh_host_nest_virtual: "{{ win_firmware_virtual_status }}"
