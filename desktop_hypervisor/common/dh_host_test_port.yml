@@ -22,7 +22,7 @@
       include_tasks: ../../windows/utils/win_execute_cmd.yml
       vars:
         win_powershell_cmd: "(Test-NetConnection -Port {{ dh_host_port }} -Computer localhost).TcpTestSucceeded"
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
         win_execute_cmd_ignore_error: true
 
     - name: "Set fact of the tested port state"
@@ -44,7 +44,7 @@
         else 
           echo "True"
         fi
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       register: lin_shell_cmd_result
     - name: "Set fact of the tested port state"
       when:
