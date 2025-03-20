@@ -17,6 +17,18 @@
   tasks:
     - name: "Test case block"
       block:
+        - name: "Set update VMware tools by default"
+          ansible.builtin.set_fact:
+            dh_update_vmtools: true
+          when: dh_update_vmtools is undefined
+
+        - name: "VM has vmtools installed and dh_update_vmtools is set false"
+          include_tasks: ../../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Test case '{{ ansible_play_name }}' is skipped because dh_update_vmtools is set to: {{ dh_update_vmtools }}"
+            skip_reason: "Skipped"
+          when: not dh_update_vmtools | bool
+
         - name: "Test setup"
           include_tasks: ../../common/dh_test_setup.yml
           vars:
@@ -48,18 +60,6 @@
             - dh_vm_vbs_enabled is defined and dh_vm_vbs_enabled | bool
             - guest_os_ansible_architecture == "64-bit"
             - (is_development_tools is defined and is_development_tools | bool) or dh_vm_guest_id is match('windows9.*')
-
-        - name: "Set update VMware tools by default"
-          ansible.builtin.set_fact:
-            dh_update_vmtools: true
-          when: dh_update_vmtools is undefined
-
-        - name: "VM has vmtools installed and dh_update_vmtools is set false"
-          include_tasks: ../../../common/skip_test_case.yml
-          vars:
-            skip_msg: "Test case '{{ ansible_play_name }}' is skipped because dh_update_vmtools is set to: {{ dh_update_vmtools }}"
-            skip_reason: "Skipped"
-          when: not dh_update_vmtools | bool
 
         - name: "Download VMware Tools ISO from URL"
           include_tasks: download_vmtools.yml
