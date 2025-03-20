@@ -58,7 +58,7 @@
           ansible.builtin.shell: |
             if [ -d {{ dh_vm_path }} ]; then rm -rf {{ dh_vm_path }}; fi
             mkdir -p {{ dh_vm_path }}
-          delegate_to: "{{ host_machine_ipaddress }}"
+          delegate_to: "{{ host_machine_hostname }}"
 
         # Change vm_username to root if it is not. And add a new user after VM deployment
         - name: "Set user account for new VM"

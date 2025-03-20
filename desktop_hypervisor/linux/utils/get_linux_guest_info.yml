@@ -6,7 +6,7 @@
   ansible.builtin.shell: |
     {{ dh_host_vmrun_path }} -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} readVariable {{ dh_vm_vmx_path }} runtimeConfig guestInfo.detailed.data
   register: vm_guestinfo
-  delegate_to: "{{ host_machine_ipaddress }}"
+  delegate_to: "{{ host_machine_hostname }}"
   become: true
   become_user: "{{ dh_vm_username }}"
 

@@ -14,7 +14,7 @@
     - vm_guestinfo.stdout_lines | length != 0
     - "'prettyName' in vm_guestinfo.stdout_lines[0]"
   ignore_errors: true
-  delegate_to: "{{ host_machine_ipaddress }}"
+  delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Print VM guest info"
   ansible.builtin.debug: var=vm_guestinfo

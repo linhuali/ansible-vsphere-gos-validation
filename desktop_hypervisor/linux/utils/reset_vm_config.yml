@@ -50,7 +50,7 @@
   vars:
     transfer_file_remote_src: "{{ dh_vm_vmx_file_local }}"
     transfer_file_remote_dest: "{{ dh_vm_vmx_path }}"
-    transfer_file_remote_server: "{{ host_machine_ipaddress }}"
+    transfer_file_remote_server: "{{ host_machine_hostname }}"
     transfer_file_remote_mode: "0777"
     transfer_file_remote_force: "true"
 

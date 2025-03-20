@@ -22,7 +22,7 @@
   ansible.builtin.set_fact:
     dh_vm_connection_type: "nat"
 
-- name: "Open Guest vm on {{ host_machine_ipaddress }}"
+- name: "Open Guest vm on {{ host_machine_hostname }}"
   when: dh_vm_vmx_file_local is defined and dh_vm_vmx_file_local
   block:
     - name: "Update vmx file with msg.autAnswer: {{ dh_vm_vmx_path }}"
@@ -64,7 +64,7 @@
   vars:
     src_path_local: "{{ dh_vm_vmx_file_local }}"
     dest_path_remote: "{{ dh_vm_vmx_path }}"
-    vm_guest_ip: "{{ host_machine_ipaddress }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
 
 - name: "Copy new VM vmx file from local to Linux host"
   when: host_machine_type == "linux"
@@ -72,6 +72,6 @@
   vars:
     transfer_file_remote_src: "{{ dh_vm_vmx_file_local }}"
     transfer_file_remote_dest: "{{ dh_vm_vmx_path }}"
-    transfer_file_remote_server: "{{ host_machine_ipaddress }}"
+    transfer_file_remote_server: "{{ host_machine_hostname }}"
     transfer_file_remote_mode: "0777"
     transfer_file_remote_force: "true"

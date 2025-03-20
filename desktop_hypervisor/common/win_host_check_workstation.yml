@@ -8,7 +8,7 @@
       include_tasks: ../../windows/utils/win_get_software_install_status.yml
       vars:
         win_software_name: "VMware Workstation"
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
     - name: "Set fact of Workstation install status"
       ansible.builtin.set_fact:
         dh_host_installed: "{{ win_software_is_installed }}"
@@ -20,7 +20,7 @@
       include_tasks: ../../windows/utils/win_get_software_install_path.yml
       vars:
         win_software_name: "VMware Workstation"
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
     - name: "Set fact of Workstation installed path"
       ansible.builtin.set_fact:
         dh_host_installed_path: "{{ win_software_install_path }}"

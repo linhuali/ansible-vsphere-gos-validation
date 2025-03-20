@@ -14,7 +14,7 @@
   include_tasks: ../../windows/utils/win_execute_cmd.yml
   vars:
     win_powershell_cmd: "{{ uninstall_cmd }}"
-    vm_guest_ip: "{{ host_machine_ipaddress }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
   register: ws_uninstall_result
 
 - name: "Check Workstation installation status in Windows host"

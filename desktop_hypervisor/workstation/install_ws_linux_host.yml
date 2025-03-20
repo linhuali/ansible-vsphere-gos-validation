@@ -30,7 +30,7 @@
       include_tasks: ../../linux/utils/get_file_stat_info.yml
       vars:
         guest_file_path: "{{ ws_install_file_path }}"
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
 
     - name: "Set fact of Workstation installation file exists or not"
       ansible.builtin.set_fact:
@@ -47,7 +47,7 @@
         checksum: "{{ workstation_package_checksum | default(omit) }}"
         validate_certs: false
         timeout: 180
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       register: download_ws_result
     - name: "Display the download result"
       ansible.builtin.debug: var=download_ws_result
@@ -89,14 +89,14 @@
   include_tasks: ../../linux/utils/get_file_stat_info.yml
   vars:
     guest_file_path: "{{ ws_cmd_path }}"
-    vm_guest_ip: "{{ host_machine_ipaddress }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
 
 - name: "Uninstall Workstation if it exists"
   when: guest_file_exists
   block:
     - name: "Uninstall workstation if {{ ws_cmd_path }} exists"
       ansible.builtin.shell: "sudo vmware-installer --required -u vmware-workstation"
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       register: ws_uninstall_result
       failed_when:
         - ws_uninstall_result.stderr is defined
@@ -104,18 +104,18 @@
     - name: "Display Workstation silent install result"
       debug: var=ws_uninstall_result
 
-- name: "Install Workstation on {{ host_machine_ipaddress }}"
+- name: "Install Workstation on {{ host_machine_hostname }}"
   block:
     - name: "Execute Workstation silent install"
       ansible.builtin.shell: "sudo sh {{ ws_install_cmd }} 2>&1 | tee -a /tmp/vmware-installer.log"
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       register: ws_install_result
       #failed_when:
       #  - ws_install_result.stderr is defined
       #  - ws_install_result.stderr
     - name: "Build VMware Modules"
       ansible.builtin.shell: "vmware-modconfig --console --install-all 2>&1 | tee -a /tmp/vmware-modconfig.log"
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       register: ws_module_build_result
       failed_when:
         - ws_module_build_result.stderr is defined
@@ -129,7 +129,7 @@
     #- name: "Reboot Linux host"
     #  ansible.builtin.reboot:
     #    reboot_timeout: 300
-    #  delegate_to: "{{ host_machine_ipaddress }}"
+    #  delegate_to: "{{ host_machine_hostname }}"
     #  register: host_reboot_result
   always:
     - name: "Get the vmware-installer log to local"
@@ -151,7 +151,7 @@
     - name: "Get Workstation daemon version"
       ansible.builtin.command: "{{ ws_cmd_path }} -v"
       register: ws_version
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
 
     - name: "Set Workstation info from {{ ws_cmd_path }}"
       ansible.builtin.set_fact:

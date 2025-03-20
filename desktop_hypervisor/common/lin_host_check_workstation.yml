@@ -9,7 +9,7 @@
         path: "/usr/bin/vmware"
       register: stat_result
       ignore_errors: true
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       become: true
       become_user: "{{ dh_vm_username }}"
     - name: "Set workstation installed or not"
@@ -23,7 +23,7 @@
   block:
     - name: "Get Workstation installed path in Linux host"
       ansible.builtin.shell: "which vmware"
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       register: lin_software_install_path
     - name: "Set fact of Workstation installed path"
       ansible.builtin.set_fact:
