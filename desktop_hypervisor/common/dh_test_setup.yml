@@ -10,7 +10,7 @@
         create_current_test_folder: "{{ create_dh_test_folder | default(false) }}"
     - name: "Set host machine IP to be variable 'vm_guest_ip' used in utils tasks"
       ansible.builtin.set_fact:
-        host_machine_ipaddress: "{{ vm_guest_ip }}"
+        host_machine_hostname: "{{ vm_guest_ip }}"
         host_machine_username: "{{ vm_username }}"
         host_machine_password: "{{ vm_password }}"
 
@@ -152,7 +152,7 @@
       block:
         - name: "Get vmrun installed path in Linux host"
           ansible.builtin.shell: "which vmrun"
-          delegate_to: "{{ host_machine_ipaddress }}"
+          delegate_to: "{{ host_machine_hostname }}"
           register: lin_software_install_path
         - name: "Set fact of vmrun installed path"
           ansible.builtin.set_fact:

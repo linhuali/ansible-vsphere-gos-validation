@@ -6,7 +6,7 @@
 
 - name: "Uninstall Workstation if it exists"
   ansible.builtin.shell: "sudo vmware-installer --required -u vmware-workstation"
-  delegate_to: "{{ host_machine_ipaddress }}"
+  delegate_to: "{{ host_machine_hostname }}"
   register: ws_uninstall_result
   failed_when:
     - ws_uninstall_result.stderr is defined

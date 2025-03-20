@@ -25,7 +25,7 @@
   ignore_errors: true
   become: true
   become_user: "{{ dh_vm_username }}"
-  delegate_to: "{{ host_machine_ipaddress }}"
+  delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Print VMTools version and build"
   ansible.builtin.debug: var=vmtools_version_build

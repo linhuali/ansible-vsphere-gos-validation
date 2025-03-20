@@ -14,7 +14,7 @@
       include_tasks: ../../../windows/utils/win_check_file_exist.yml
       vars:
         win_check_file_exist_file: "{{ dh_host_vdisk_manager_path }}"
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
     - name: "Display win_check_file_exist_result"
       ansible.builtin.debug: var=win_check_file_exist_result
       failed_when: not win_check_file_exist_result
@@ -30,7 +30,7 @@
   block:
     - name: "Get vmware-vdiskmanager installed path in Linux host"
       ansible.builtin.shell: "which vmware-vdiskmanager"
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       register: lin_software_install_path
     - name: "Set fact of vmware-vdiskmanager installed path"
       ansible.builtin.set_fact:
