@@ -17,14 +17,14 @@
           Remove-Item -Path "{{ dh_vm_new_path }}" -Recurse
         }
         New-Item -ItemType 'directory' -Path "{{ dh_vm_new_path }}"
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       become: "{{ win_execute_cmd_become | default(false) }}"
       become_method: runas
       become_user: "{{ win_execute_cmd_become_user | default('Administrator') }}"
     - name: "Extract OVF to VMX using ovftool"
       ansible.windows.win_command:
         cmd: '"{{ dh_host_ovftool_path }}" --overwrite --skipManifestCheck {{ dh_guest_image_path }} "{{ dh_vm_vmx_path }}"'
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       become: "{{ win_execute_cmd_become | default(false) }}"
       become_method: runas
       become_user: "{{ win_execute_cmd_become_user | default('Administrator') }}"
@@ -54,10 +54,10 @@
         ( extract_ovf_result.stdout is defined and 'Error' in extract_ovf_result.stdout )
         or
         ( extract_ovf_result.stderr is defined and 'Error' in extract_ovf_result.stderr )
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
     - name: "Chmod to guest vm files "
       ansible.builtin.shell: "chmod -R 0777 {{ dh_vm_path }}"
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Set the result of ovf extract"
   when: >

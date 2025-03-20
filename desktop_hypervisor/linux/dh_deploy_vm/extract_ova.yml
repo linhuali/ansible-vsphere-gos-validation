@@ -25,11 +25,11 @@
     ( extract_result.stdout is defined and 'Error' in extract_result.stdout )
     or
     ( extract_result.stderr is defined and 'Error' in extract_result.stderr )
-  delegate_to: "{{ host_machine_ipaddress }}"
+  delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Chmod to guest vm files "
   ansible.builtin.shell: "chmod -R 0777 {{ dh_vm_path }}"
-  delegate_to: "{{ host_machine_ipaddress }}"
+  delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Set the result of ovftool extract"
   when: extract_result.stderr is not defined or not extract_result.stderr

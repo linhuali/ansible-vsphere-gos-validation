@@ -22,7 +22,7 @@
     dest: "{{ dh_vm_tools_path }}"
     checksum: "{{ vmtools_package_checksum | default(omit) }}"
     validate_certs: false
-  delegate_to: "{{ host_machine_ipaddress }}"
+  delegate_to: "{{ host_machine_hostname }}"
   register: download_ws_result
 - name: "Display the download result"
   ansible.builtin.debug: var=download_ws_result

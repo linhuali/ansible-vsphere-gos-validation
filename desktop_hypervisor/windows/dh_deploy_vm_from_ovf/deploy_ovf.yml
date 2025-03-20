@@ -5,10 +5,10 @@
 #  include_tasks: ../../../windows/utils/win_check_file_exist.yml
 #  vars:
 #    win_check_file_exist_file: "{{ dh_vm_vmx_path }}"
-#    vm_guest_ip: "{{ host_machine_ipaddress }}"
+#    vm_guest_ip: "{{ host_machine_hostname }}"
 #  register: dh_guest_vm_extracted
 
-- name: "Open Guest vm on {{ host_machine_ipaddress }}"
+- name: "Open Guest vm on {{ host_machine_hostname }}"
   when: dh_guest_vm_extracted
   block:
     - name: "Update the vmx file extracted from ovf"
@@ -27,7 +27,7 @@
       ansible.windows.win_command:
         cmd: '"{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} readVariable "{{ dh_vm_vmx_path }}" runtimeConfig remotedisplay.vnc.port'
       register: vnc_port
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
 
     - name: "Take a VM screenshot after start"
       include_tasks: ../../common/dh_vm_take_screenshot.yml

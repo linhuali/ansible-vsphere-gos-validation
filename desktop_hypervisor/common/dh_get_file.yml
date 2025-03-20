@@ -16,7 +16,7 @@
       vars:
         win_get_file_src_path: "{{ file_src_path }}"
         win_get_file_dst_path: "{{ file_dst_path }}"
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
     - name: "Set facts of local vmx path"
       ansible.builtin.set_fact:
         file_local_path: "{{ fetch_file.dest }}"
@@ -29,7 +29,7 @@
       vars:
         fetch_file_src_path: "{{ file_src_path }}"
         fetch_file_dst_path: "{{ file_dst_path}}"
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
     - name: "Set facts of local vmx path"
       ansible.builtin.set_fact:
         file_local_path: "{{ fetch_file_local_path }}"

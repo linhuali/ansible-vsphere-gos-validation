@@ -20,7 +20,7 @@
       ansible.windows.win_shell: "{{ win_vmrun_get_ip_cmd }}"
       delay: 10
       retries: "{{ dh_guest_getip_retry_times | default(10) }}"
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       register: win_get_ip_status
       until:
         - win_get_ip_status is defined
@@ -41,7 +41,7 @@
       become_user: "{{ dh_vm_username }}"
       delay: 20
       retries: "{{ dh_guest_getip_retry_times | default(10) }}"
-      delegate_to: "{{ host_machine_ipaddress }}"
+      delegate_to: "{{ host_machine_hostname }}"
       register: lin_get_ip_status
       until:
         - lin_get_ip_status is defined

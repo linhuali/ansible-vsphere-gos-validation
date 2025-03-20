@@ -22,7 +22,7 @@
   ansible.builtin.shell: "cat {{ vm_wait_log_name }} | grep -a -E -o '{{ vm_wait_log_msg }}'"
   become: yes
   become_user: "{{ dh_vm_username }}"
-  delegate_to: "{{ host_machine_ipaddress }}"
+  delegate_to: "{{ host_machine_hostname }}"
   register: get_vm_log_content
   until:
     - get_vm_log_content is defined
