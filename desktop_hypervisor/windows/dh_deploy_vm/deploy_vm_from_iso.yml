@@ -76,6 +76,7 @@
     vm_username: "{{ dh_vm_username }}"
     vm_password: "{{ dh_vm_password }}"
     windows_product_key: "{{ dh_guest_windows_product_key }}"
+    os_install_iso_list_len: 1
 - name: "Copy Autounattend install ISO file to Windows host"
   include_tasks: ../../../windows/utils/win_copy_file_from_local.yml
   vars:
