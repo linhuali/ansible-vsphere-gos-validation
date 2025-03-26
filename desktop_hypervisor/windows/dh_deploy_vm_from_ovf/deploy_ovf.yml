@@ -48,4 +48,4 @@
       vars:
         win_powershell_cmd: >-
           if ($(Test-Path "{{ dh_vm_path }}\\{{ dh_vm_new_name }}")) {Remove-Item "{{ dh_vm_path }}\{{ dh_vm_new_name }}" -Recurse -Force}
-        vm_guest_ip: "{{ host_machine_ipaddress }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
