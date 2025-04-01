@@ -4,10 +4,15 @@
 - name: "Handle host VM deployed on ESXi host situation"
   when: is_vsphere_env
   block:
-    - name: "Test setup for host VM"
-      include_tasks: "../../{{ host_machine_type }}/setup/test_setup.yml"
-      vars:
-        create_current_test_folder: "{{ create_dh_test_folder | default(false) }}"
+    #- name: "Test setup for host VM"
+    #  include_tasks: "../../{{ host_machine_type }}/setup/test_setup.yml"
+    #  vars:
+    #    create_current_test_folder: "{{ create_dh_test_folder | default(false) }}"
+    - name: "Add Windows host to in-memory inventory"
+      include_tasks: ../../windows/utils/add_windows_host.yml
+      when:
+        - host_machine_type == "windows"
+        - ansible_play_name == "install_workstation"
     - name: "Update host_machine_hostname in vars/test_dh.yml"
       ansible.builtin.lineinfile:
         path: ../../vars/test_dh.yml
@@ -19,6 +24,7 @@
         host_machine_hostname: "{{ vm_guest_ip }}"
         host_machine_username: "{{ vm_username }}"
         host_machine_password: "{{ vm_password }}"
+      when: ansible_play_name == "install_workstation"
 
 - name: "Handle single host machine situation"
   when: not is_vsphere_env
@@ -26,10 +32,11 @@
     - name: "Set fact of host machine OS type"
       ansible.builtin.set_fact:
         host_machine_type: "{{ host_machine_type | lower }}"
-    - name: "Set current test case index, name and log folder"
-      include_tasks: ../../common/set_current_testcase_facts.yml
-      vars:
-        create_test_log_folder: "{{ create_dh_test_folder | default(false) }}"
+
+- name: "Set current test case index, name and log folder"
+  include_tasks: ../../common/set_current_testcase_facts.yml
+  vars:
+    create_test_log_folder: "{{ create_dh_test_folder | default(false) }}"
 
 - name: "Reset the dh_vm_deploy_method per dh_guest_iso_path"
   when:
