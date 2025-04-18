@@ -117,10 +117,12 @@
       ansible.builtin.shell: "vmware-modconfig --console --install-all 2>&1 | tee -a /tmp/vmware-modconfig.log"
       delegate_to: "{{ host_machine_hostname }}"
       register: ws_module_build_result
-      failed_when:
-        - ws_module_build_result.stderr is defined
-        - ws_module_build_result.stderr_lines | length > 0
-        - "'Error ' in ws_module_build_result.stderr"
+      failed_when: >
+        (ws_module_build_result.stderr is defined and
+        ws_module_build_result.stderr_lines | length > 0 and
+        'error' in ws_module_build_result.stderr | lower) or
+        (ws_module_build_result.stdout is defined and
+        'error' in ws_module_build_result.stdout | lower)
       #when:
       #  - ws_install_result.stderr is defined
       #  - ws_install_result.stderr
