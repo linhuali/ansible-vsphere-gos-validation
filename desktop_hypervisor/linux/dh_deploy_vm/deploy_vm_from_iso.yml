@@ -83,6 +83,7 @@
         unattend_install_conf: "{{ dh_guest_unattend_install_conf }}"
         vm_username: "{{ dh_vm_username }}"
         vm_password: "{{ dh_vm_password }}"
+        os_install_iso_list_len: 1
 
     # Prepare VNC server config
     - name: "Set VNC server port when it's not configured"

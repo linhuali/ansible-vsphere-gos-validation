@@ -19,7 +19,7 @@
         vm_guest_ip: "{{ host_machine_hostname }}"
     - name: "Set facts of local vmx path"
       ansible.builtin.set_fact:
-        file_local_path: "{{ fetch_file.dest }}"
+        file_local_path: "{{ win_fetch_file.dest }}"
 
 - name: "Copy the vmx file from Linux Host to local"
   when: host_machine_type == "linux"
