@@ -31,8 +31,8 @@
       block:
         - name: "Download 12.4.5 windows-x86.iso"
           ansible.windows.win_get_url:
-            url: "http://build-squid.vcfd.broadcom.net/build/mts/release/bora-23787635/publish/windows-x86.iso"
-            dest: "{{ dh_host_installed_path }}"
+            url: "{https://packages.vmware.com/tools/releases/12.4.5/windows/x86/VMware-tools-12.4.5-23787635-i386.exe"
+            dest: "{{ dh_host_installed_path }}\\windows-x86.iso"
             checksum: "{{ workstation_package_checksum | default(omit) }}"
             validate_certs: false
           delegate_to: "{{ host_machine_hostname }}"
