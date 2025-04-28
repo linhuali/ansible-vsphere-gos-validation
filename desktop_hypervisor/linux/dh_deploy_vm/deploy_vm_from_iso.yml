@@ -56,7 +56,7 @@
     - dh_guest_unattend_install_conf is not match('Ubuntu/Server/')
     - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Subiquity')
   ansible.builtin.set_fact:
-    unattend_install_iso: "{{ dh_vm_guest_id }}{{ '_'.join(''.join(dh_guest_unattend_install_conf.split('.')[:-1]).split('/')) }}-{{ lookup('pipe','date +%s') }}.iso"
+    unattend_install_iso: "{{ guest_id }}{{ '_'.join(''.join(dh_guest_unattend_install_conf.split('.')[:-1]).split('/')) }}-{{ current_test_timestamp }}.iso"
     #unattend_install_iso: "{{ dh_vm_guest_id }}-{{ dh_vm_firmware }}-{{ dh_vm_boot_disk_controller }}-{{ iso_timestamp }}.iso"
 - name: "Set fact of Autounattend ISO file name"
   when: >
@@ -91,6 +91,7 @@
         transfer_file_remote_dest: "{{ dh_vm_unattend_iso_path }}"
         transfer_file_remote_server: "{{ host_machine_hostname }}"
         transfer_file_remote_mode: "0777"
+      when: is_vsphere_env
 
     # Prepare VNC server config
     - name: "Set VNC server port when it's not configured"
