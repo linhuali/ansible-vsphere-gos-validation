@@ -84,6 +84,13 @@
         vm_username: "{{ dh_vm_username }}"
         vm_password: "{{ dh_vm_password }}"
         os_install_iso_list_len: 1
+    - name: "Copy Autounattend install ISO to Linux host"
+      include_tasks: ../../../common/transfer_file_remote.yml
+      vars:
+        transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ unattend_install_iso }}"
+        transfer_file_remote_dest: "{{ dh_vm_unattend_iso_path }}"
+        transfer_file_remote_server: "{{ host_machine_hostname }}"
+        transfer_file_remote_mode: "0777"
 
     # Prepare VNC server config
     - name: "Set VNC server port when it's not configured"
