@@ -84,14 +84,30 @@
         vm_username: "{{ dh_vm_username }}"
         vm_password: "{{ dh_vm_password }}"
         os_install_iso_list_len: 1
-    - name: "Copy Autounattend install ISO to Linux host"
-      include_tasks: ../../../common/transfer_file_remote.yml
-      vars:
-        transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ unattend_install_iso }}"
-        transfer_file_remote_dest: "{{ dh_vm_unattend_iso_path }}"
-        transfer_file_remote_server: "{{ host_machine_hostname }}"
-        transfer_file_remote_mode: "0777"
+
+    - name: "Copy unattend install iso to Linux host and remove it from datastore"
       when: is_vsphere_env
+      block:
+        - name: "Copy Autounattend install ISO to Linux host"
+          include_tasks: ../../../common/transfer_file_remote.yml
+          vars:
+            transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ unattend_install_iso }}"
+            transfer_file_remote_dest: "{{ dh_vm_unattend_iso_path }}"
+            transfer_file_remote_server: "{{ host_machine_hostname }}"
+            transfer_file_remote_mode: "0777"
+        - name: "Remove unattend install iso from datastore"
+          include_tasks: ../../../common/esxi_check_delete_datastore_file.yml
+          vars:
+            file_in_datastore: "{{ datastore }}"
+            file_in_datastore_path: "{{ unattend_iso }}"
+            file_in_datastore_ops: "absent"
+            file_in_datastore_ignore_failed: true
+          with_items: "{{ transferred_unattend_iso_list }}"
+          loop_control:
+            loop_var: unattend_iso
+          when:
+            - transferred_unattend_iso_list is defined
+            - transferred_unattend_iso_list
 
     # Prepare VNC server config
     - name: "Set VNC server port when it's not configured"
