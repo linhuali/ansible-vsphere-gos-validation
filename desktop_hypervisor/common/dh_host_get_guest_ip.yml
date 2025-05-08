@@ -27,7 +27,7 @@
         - win_get_ip_status.stdout_lines is defined
         - win_get_ip_status.stdout_lines | length != 0
         - win_get_ip_status.stdout_lines[0] is regex("^\d+\.\d+\.\d+\.\d+$")
-        - "'Error' not in win_get_ip_status.stdout_lines[0]"
+        - "'error' not in (win_get_ip_status.stdout_lines[0] | lower)"
     - name: "Set the fact of Guest IP"
       ansible.builtin.set_fact:
         get_ip_status: "{{ win_get_ip_status }}"
@@ -48,7 +48,7 @@
         - lin_get_ip_status.stdout_lines is defined
         - lin_get_ip_status.stdout_lines | length != 0
         - lin_get_ip_status.stdout_lines[0] is regex("^\d+\.\d+\.\d+\.\d+$")
-        - "'Error' not in lin_get_ip_status.stdout_lines[0]"
+        - "'error' not in (lin_get_ip_status.stdout_lines[0] | lower)"
     - name: "Set the fact of Guest IP"
       ansible.builtin.set_fact:
         get_ip_status: "{{ lin_get_ip_status }}"
