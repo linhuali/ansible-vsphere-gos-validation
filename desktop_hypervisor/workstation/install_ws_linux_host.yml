@@ -110,9 +110,10 @@
       ansible.builtin.shell: "sudo sh {{ ws_install_cmd }} 2>&1 | tee -a /tmp/vmware-installer.log"
       delegate_to: "{{ host_machine_hostname }}"
       register: ws_install_result
-      #failed_when:
-      #  - ws_install_result.stderr is defined
-      #  - ws_install_result.stderr
+
+    - name: "Display Workstation silent install result"
+      debug: var=ws_install_result
+
     - name: "Build VMware Modules"
       ansible.builtin.shell: "vmware-modconfig --console --install-all 2>&1 | tee -a /tmp/vmware-modconfig.log"
       delegate_to: "{{ host_machine_hostname }}"
@@ -120,14 +121,11 @@
       failed_when: >
         (ws_module_build_result.stderr is defined and
         ws_module_build_result.stderr_lines | length > 0 and
-        'error' in ws_module_build_result.stderr | lower) or
+        ('error' in (ws_module_build_result.stderr | lower))) or
         (ws_module_build_result.stdout is defined and
-        'error' in ws_module_build_result.stdout | lower)
-      #when:
-      #  - ws_install_result.stderr is defined
-      #  - ws_install_result.stderr
-    - name: "Display Workstation silent install result"
-      debug: var=ws_install_result
+        (('error' in (ws_module_build_result.stdout | lower)) or
+        ('unable to install all modules' in (ws_module_build_result.stdout | lower))))
+
     #- name: "Reboot Linux host"
     #  ansible.builtin.reboot:
     #    reboot_timeout: 300
@@ -144,6 +142,24 @@
       vars:
         file_src_path: "/tmp/vmware-modconfig.log"
         file_dst_path: "{{ current_test_log_folder }}"
+    - name: "Check the latest log under /tmp/vmware-root"
+      ansible.builtin.shell: "ls -t /tmp/vmware-root/vmware-[0-9]*.log 2>/dev/null | head -n 1"
+      delegate_to: "{{ host_machine_hostname }}"
+      register: check_ws_log_result
+    - name: "Get the vmware-modconfig log to local"
+      when:
+        - check_ws_log_result.stdout is defined
+        - check_ws_log_result.stdout
+      block:
+        - name: "Update the vmware-modconfig log"
+          ansible.builtin.shell: "sed -i 's/^.*] //' {{ check_ws_log_result.stdout }}"
+          delegate_to: "{{ host_machine_hostname }}"
+          register: update_ws_log_result
+        - name: "Copy the vmware-modconfig log to local"
+          include_tasks: ../common/dh_get_file.yml
+          vars:
+            file_src_path: "{{ check_ws_log_result.stdout }}"
+            file_dst_path: "{{ current_test_log_folder }}"
 
 - name: "Get Workstation build and version"
   when:
