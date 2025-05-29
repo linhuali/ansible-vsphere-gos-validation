@@ -114,12 +114,16 @@
         unattend_iso_file_path: "{{ seed_iso_path }}"
         unattend_iso_file_name: "{{ seed_iso_path | basename }}"
         new_os_installation_iso: "{{ (os_installation_iso_list[0] | basename | splitext)[0] }}-{{ current_test_timestamp }}.iso"
+      when: is_vsphere_env and not in_desktop_hypervisor_testing
 
     - name: "Set fact of new_os_installation_iso name for Desktop Hypervisor"
       when:
         - not is_vsphere_env
         - dh_guest_iso_path is defined and dh_guest_iso_path
       ansible.builtin.set_fact:
+        new_unattend_install_conf: "{{ user_data_path }}"
+        unattend_iso_file_path: "{{ seed_iso_path }}"
+        unattend_iso_file_name: "{{ seed_iso_path | basename }}"
         new_os_installation_iso: "{{ dh_guest_iso_path | basename }}"
 
     - name: "Set fact of the local path to the rebuilt OS installation ISO file"
