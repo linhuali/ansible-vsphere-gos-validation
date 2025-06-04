@@ -72,7 +72,7 @@
             new_yum_repo_path: "{{ add_yum_repo_result.diff.after_header }}"
 
         - name: "Remove spaces in repository file"
-          ansible.builtin.shell: "sed -i 's/ *= */=/' {{ new_yum_repo_path }}"
+          ansible.builtin.shell: "sed -i 's/ //g' \"{{ new_yum_repo_path }}\""
           delegate_to: "{{ vm_guest_ip }}"
 
 - name: "Add zypper repository on {{ vm_guest_os_distribution }}"
