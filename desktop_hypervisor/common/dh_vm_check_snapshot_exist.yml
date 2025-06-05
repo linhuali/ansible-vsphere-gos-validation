@@ -17,6 +17,8 @@
 - name: "Loop snapshot list to find specified snapshot"
   when:
     - vm_snapshot_facts is defined
+    - vm_snapshot_facts.guest_snapshots is defined
+    - vm_snapshot_facts.guest_snapshots.snapshots is defined
   ansible.builtin.set_fact:
     snapshot_exist: "{{ vm_snapshot_facts.guest_snapshots.snapshots | selectattr('name', 'equalto', snapshot_name) | length == 1 }}"
 
