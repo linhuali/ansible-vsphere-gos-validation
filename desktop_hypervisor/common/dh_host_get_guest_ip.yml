@@ -19,16 +19,22 @@
     - name: "Pull Guest IP with vmrun"
       ansible.windows.win_shell: "{{ win_vmrun_get_ip_cmd }}"
       delay: 10
-      retries: 360
+      retries: 20
       delegate_to: "{{ host_machine_hostname }}"
       register: win_get_ip_status
       until:
-        - win_get_ip_status is defined
         - win_get_ip_status.stdout_lines is defined
-        - win_get_ip_status.stdout_lines | length != 0
+        - win_get_ip_status.stdout_lines | length > 0
         - win_get_ip_status.stdout_lines[0] is regex("^\d+\.\d+\.\d+\.\d+$")
+        - win_get_ip_status.stdout_lines[0] != "0.0.0.0"
         - "'error' not in (win_get_ip_status.stdout_lines[0] | lower)"
-      failed_when: win_get_ip_status is not success
+      failed_when:
+        - win_get_ip_status.stdout_lines is defined or win_get_ip_status.stdout_lines | length == 0
+        - >
+          win_get_ip_status.stdout_lines | length > 0 and
+          (win_get_ip_status.stdout_lines[0] == "0.0.0.0" or
+          'error' in (win_get_ip_status.stdout_lines[0] | lower))
+
     - name: "Set the fact of Guest IP"
       ansible.builtin.set_fact:
         get_ip_status: "{{ win_get_ip_status }}"
