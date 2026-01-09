@@ -25,7 +25,7 @@
     guestinfo_vmtools_info: "{{ vmtools_info_from_vmtoolsd | default('') }}"
     guestinfo_guest_id: "{{ dh_vm_guest_id | default('') }}"
     vm_guest_id: "{{ dh_vm_guest_id | default('') }}"
-    vm_name: "{{ dh_vm_name | default('') }}"
+    dh_vm_name: "{{ dh_vm_name | default('') }}"
     vm_hardware_version: "{{ dh_vm_hardware_version | string }}"
     guestinfo_gathered: true
 
@@ -37,4 +37,4 @@
       - "VM guest info guest full name: {{ guestinfo_guest_full_name }}"
       - "VM guest info guest family: {{ guestinfo_guest_family }}"
       - "VM guest info guest detailed data: {{ guestinfo_detailed_data }}"
-      - "VM name: {{ vm_name }}"
+      - "VM name: {{ dh_vm_name }}"
