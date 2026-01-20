@@ -88,6 +88,10 @@
     - name: "Copy unattend install iso to Linux host and remove it from datastore"
       when: is_vsphere_env
       block:
+        - name: "Reset the unattend_install_iso"
+          ansible.builtin.set_fact:
+            unattend_install_iso: "{{ new_os_installation_iso }}"
+          when: new_os_installation_iso
         - name: "Copy Autounattend install ISO to Linux host"
           include_tasks: ../../../common/transfer_file_remote.yml
           vars:

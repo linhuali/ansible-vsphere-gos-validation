@@ -6,7 +6,9 @@
 #   rebuilt_unattend_iso_path: Local path to the rebuilt ISO image with unattend install config file
 #
 - name: "Fetch ISO file from ESXi server and set fact of source ISO file at local"
-  when: is_vsphere_env
+  when:
+    - is_vsphere_env
+    - os_installation_iso_list | length > 0
   block:
   - name: "Set fact of the absolute path of source ISO file on ESXi server"
     ansible.builtin.set_fact:
@@ -30,7 +32,7 @@
 
 - name: "Set fact of source ISO image file name and path"
   when:
-    - not is_vsphere_env
+    - (not is_vsphere_env) or (os_installation_iso_list | length == 0)
     - dh_guest_iso_path is defined and dh_guest_iso_path
   block:
     - name: "Set fact of source ISO image file dir at local"

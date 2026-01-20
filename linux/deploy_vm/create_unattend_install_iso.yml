@@ -77,13 +77,15 @@
       when: unattend_installer in ['Ubuntu-Ubiquity', 'Photon', 'Debian', 'FreeBSD', 'Pardus']
       block:
         - name: "Set fact of the rebuilt new OS installation ISO file name"
-          when: is_vsphere_env
           ansible.builtin.set_fact:
             new_os_installation_iso: "{{ (os_installation_iso_list[0] | basename | splitext)[0] }}-{{ current_test_timestamp }}.iso"
+          when:
+            - is_vsphere_env
+            - os_installation_iso_list | length > 0
 
         - name: "Set fact of new_os_installation_iso name for Desktop Hypervisor"
           when:
-            - not is_vsphere_env
+            - (not is_vsphere_env) or (os_installation_iso_list | length == 0)
             - dh_guest_iso_path is defined and dh_guest_iso_path
           ansible.builtin.set_fact:
             new_os_installation_iso: "{{ (dh_guest_iso_path | basename | splitext)[0] }}-{{ timestamp }}.iso"
@@ -118,7 +120,7 @@
 
     - name: "Set fact of new_os_installation_iso name for Desktop Hypervisor"
       when:
-        - not is_vsphere_env
+        - (not is_vsphere_env) or (os_installation_iso_list | length == 0)
         - dh_guest_iso_path is defined and dh_guest_iso_path
       ansible.builtin.set_fact:
         new_unattend_install_conf: "{{ user_data_path }}"
@@ -136,7 +138,7 @@
         rebuilt_unattend_iso_path: "{{ new_os_installation_iso_path }}"
 
     - name: "Upload Ubuntu fully automated install ISO to Desktop Hypervisor Host"
-      when: not is_vsphere_env
+      when: (not is_vsphere_env) or in_desktop_hypervisor_testing
       include_tasks: ../../common/transfer_file_remote.yml
       vars:
         transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ new_os_installation_iso }}"
@@ -186,7 +188,7 @@
       when: unattend_iso_file_name
 
 - name: "Upload unattend install ISO to Desktop Hypervisor Host"
-  when: not is_vsphere_env
+  when: (not is_vsphere_env) or in_desktop_hypervisor_testing
   block:
     - name: "Copy Autounattend install ISO file to Linux host"
       include_tasks: ../../common/transfer_file_remote.yml

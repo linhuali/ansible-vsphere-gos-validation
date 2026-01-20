@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: BSD-2-Clause
 ---
 - name: "Set fact of ISO file name"
-  when: is_vsphere_env
   ansible.builtin.set_fact:
     ubuntu_iso_file_name: "{{ os_installation_iso_list[0].split('/')[-1] }}"
+  when:
+    - is_vsphere_env
+    - os_installation_iso_list | length > 0
 
 - name: "Set fact of ISO file name on Desktop Hypervisor Host"
-  when: not is_vsphere_env
   ansible.builtin.set_fact:
     ubuntu_iso_file_name: "{{ dh_guest_iso_path | basename }}"
+  when: (not is_vsphere_env) or (os_installation_iso_list | length == 0)
 
 - name: "Get Ubuntu OS version and edition from ISO file name"
   ansible.builtin.set_fact:
