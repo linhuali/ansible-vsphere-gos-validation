@@ -6,8 +6,18 @@
 #   ovt_packages: a list of open-vm-tools packages
 #
 # Uninstall open-vm-tools packages
+- name: "Get installed packages on {{ vm_guest_os_distribution }}"
+  include_tasks: ../../../linux/utils/get_installed_packages.yml
+
+- name: "Set fact of installed open-vm-tools related packages"
+  ansible.builtin.set_fact:
+    installed_ovt_packages: "{{ ovt_packages | select('in', guest_installed_packages) }}"
+
+- name: "Display open-vm-tools related packages which are installed in guest OS"
+  ansible.builtin.debug: var=installed_ovt_packages
+
 - name: "Uninstall packages {{ ovt_packages }}"
-  ansible.builtin.command: "{{ package_uninstall_cmd }} {{ ' '.join(ovt_packages) }}"
+  ansible.builtin.command: "{{ package_uninstall_cmd }} {{ ' '.join(installed_ovt_packages) }}"
   register: ovt_uninstall_result
   ignore_errors: true
   delegate_to: "{{ vm_guest_ip }}"

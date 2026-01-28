@@ -34,8 +34,7 @@ local nicName = agama.findByID(agama.lshw, 'network').logicalname;
       "openssh-server-config-rootlogin",
       "cloud-init",
       "tpm2-tss-engine-devel",
-      "tpm2.0-tools",
-      "python3-rpm"
+      "tpm2.0-tools"
     ]
   },
 {% if new_user is defined and new_user %}
