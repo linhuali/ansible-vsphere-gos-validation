@@ -255,15 +255,15 @@
       include_tasks: ../../linux/utils/get_linux_system_info.yml
       vars:
         vm_guest_ip: "{{ dh_vm_guest_ip }}"
-    - name: "Install python3-rpm in suse 16"
-      include_tasks: ../../linux/utils/install_uninstall_package.yml
-      vars:
-        package_list: [ "python3*-rpm" ]
-        package_state: "latest"
-        vm_guest_ip: "{{ dh_vm_guest_ip }}"
-      when:
-        - guest_os_family == "Suse"
-        - guest_os_ansible_distribution_major_ver | int == 16
+    #- name: "Install python3-rpm in suse 16"
+    #  include_tasks: ../../linux/utils/install_uninstall_package.yml
+    #  vars:
+    #    package_list: [ "python3*-rpm" ]
+    #    package_state: "latest"
+    #    vm_guest_ip: "{{ dh_vm_guest_ip }}"
+    #  when:
+    #    - guest_os_family == "Suse"
+    #    - guest_os_ansible_distribution_major_ver | int == 16
     - name: "Get VMware Tools version and build"
       include_tasks: ../../linux/utils/get_guest_ovt_version_build.yml
       vars:
