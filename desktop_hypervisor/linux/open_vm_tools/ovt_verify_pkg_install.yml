@@ -63,7 +63,7 @@
             - dh_update_vmtools
             - dh_guest_id is not match('.*centos7.*')
             - dh_guest_id is not match('.*rhel7.*')
-            - dh_guest_id is not match('.*opensuse.*')
+            #- dh_guest_id is not match('.*opensuse.*')
           ansible.builtin.set_fact:
             uninstall_tools: true
 
