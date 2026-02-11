@@ -33,15 +33,15 @@
     - guest_os_ansible_distribution_major_ver | int >= 15
   block:
     - name: "Get local CD/DVD repository aliases"
-      ansible.builtin.shell: |
-        zypper lr -d | grep -E 'cd:|iso:|dvd:' | awk -F '|' '{print $2}' | sed 's/^[ \t]*//;s/[ \t]*$//'
+      ansible.builtin.raw: |
+        zypper lr -d | grep -E "cd:/|dvd:/" | grep -vE "non-oss|update" | cut -d'|' -f2
       delegate_to: "{{ dh_vm_guest_ip }}"
       register: zypper_local_repos
       changed_when: false
       failed_when: false
     - name: "Set facts about guest OS local repositories"
       ansible.builtin.set_fact:
-        guest_local_repo_ids: "{{ zypper_local_repos.stdout_lines | select('string') | list }}"
+        guest_local_repo_ids: "{{ zypper_local_repos.stdout_lines | map('trim') | select('ne', '') | list }}"
     - name: "Enable local repositories on {{ vm_guest_os_distribution }}"
       include_tasks: enable_disable_repos.yml
       vars:
