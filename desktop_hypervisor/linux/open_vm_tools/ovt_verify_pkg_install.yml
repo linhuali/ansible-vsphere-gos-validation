@@ -30,7 +30,8 @@
           when: >
             dh_guest_id is defined and
             (dh_guest_id is match('.*other.*linux.*') or
-            dh_guest_id is match('.*rhel(5|6).*'))
+            dh_guest_id is match('.*rhel(5|6).*') or
+            (dh_guest_id is match('.*opensuse.*') and "15" in dh_guest_iso_path))
           include_tasks: ../../../common/skip_test_case.yml
           vars:
             skip_msg: "Skip test case due to {{ dh_guest_id }} is not supported by {{ current_testcase_name }}'"
