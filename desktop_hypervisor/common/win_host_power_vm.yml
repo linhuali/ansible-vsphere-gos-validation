@@ -30,23 +30,62 @@
   register: session_id
   delegate_to: "{{ host_machine_hostname }}"
 
-- name: "vmrun power operation: {{ power_option }} vm"
+- name: "Asynchronous start of vmrun operation"
   community.windows.win_psexec:
     command: >-
       "{{ dh_host_vmrun_path }}" -T ws {{ power_option }} "{{ dh_vm_vmx_path }}"
     executable: "{{ psexec_path_remote }}"
     interactive: true
     nobanner: true
-    timeout: 60
     session: "{{ session_id.stdout }}"
     username: "{{ host_machine_username }}"
     password: "{{ host_machine_password }}"
-    hostnames:
-    - localhost
-  register: power_vm_result
+    hostnames: ["localhost"]
+  register: async_power_vm
   delegate_to: "{{ host_machine_hostname }}"
-  async: 300
-  poll: 30
+  async: 600
+  poll: 0
+
+- name: "Monitor vmrun operation status"
+  async_status:
+    jid: "{{ async_power_vm.ansible_job_id }}"
+  register: job_result
+  delegate_to: "{{ host_machine_hostname }}"
+  until: job_result.finished
+  retries: 30
+  delay: 10
+  ignore_errors: yes
+
+- name: "Validate execution results and report errors"
+  fail:
+    msg: |
+      The VM power operation failed!
+      - Target Host: {{ host_machine_hostname }}
+      - Power Option: {{ power_option }}
+      - Return Code: {{ job_result.rc | default('Unknown') }}
+      - Error Details: {{ job_result.stderr | default('No stderr captured') }}
+      - Output: {{ job_result.stdout | default('No stdout captured') }}
+  when: >
+    job_result.failed or 
+    (job_result.rc is defined and job_result.rc != 0)
+
+#- name: "vmrun power operation: {{ power_option }} vm"
+#  community.windows.win_psexec:
+#    command: >-
+#      "{{ dh_host_vmrun_path }}" -T ws {{ power_option }} "{{ dh_vm_vmx_path }}"
+#    executable: "{{ psexec_path_remote }}"
+#    interactive: true
+#    nobanner: true
+#    timeout: 60
+#    session: "{{ session_id.stdout }}"
+#    username: "{{ host_machine_username }}"
+#    password: "{{ host_machine_password }}"
+#    hostnames:
+#    - localhost
+#  register: power_vm_result
+#  delegate_to: "{{ host_machine_hostname }}"
+#  async: 300
+#  poll: 30
   # become: true
   # become_method: runas
   # become_user: "{{ host_machine_username }}"
