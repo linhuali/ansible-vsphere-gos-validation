@@ -26,7 +26,7 @@
 - name: "Install 'python3-rpm' on {{ vm_guest_os_distribution }}"
   include_tasks: ../utils/install_uninstall_package.yml
   vars:
-    package_list: ["python3*-rpm"]
+    package_list: "{{ (vm_guest_os_distribution is search('CentOS 8.2')) | ternary(['python3-rpm'], ['python3*-rpm']) }}"
     package_state: "latest"
   when:
     - guest_os_python_version is version('3.0.0', '>=')
