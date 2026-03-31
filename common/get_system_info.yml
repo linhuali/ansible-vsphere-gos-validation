@@ -17,6 +17,14 @@
     gather_timeout: "{{ get_gos_info_timeout | default(30) }}"
   register: get_gos_info_result
   delegate_to: "{{ vm_guest_ip }}"
+  vars:
+    current_vm_guest_id: "{{ hostvars['localhost']['vm_guest_id'] | default('') }}"
+    ansible_ssh_extra_args: >-
+      {{ 
+        '-o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa' 
+        if (current_vm_guest_id is search('rhel6')) 
+        else '' 
+      }}
 
 - name: "Set gathered guest system information"
   ansible.builtin.set_fact:
