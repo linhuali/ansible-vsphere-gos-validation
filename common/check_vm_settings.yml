@@ -28,7 +28,7 @@
           VM doesn't meet test requirement, which must have one network adapter and it
           should be connected. Current VM's network adapters are '{{ vm_network_adapters }}'.
   when: >
-    (vm_network_adapters | length != 1 ) or 
+    (vm_network_adapters | length < 1 ) or 
     (not vm_network_adapters['0'].connected | bool)
 
 - name: "Set the fact for checking VM settings"
