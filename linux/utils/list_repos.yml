@@ -28,7 +28,7 @@
       when: guest_os_ansible_distribution == 'ProLinux'
 
     - name: "List all repositories on {{ vm_guest_os_distribution }}"
-      ansible.builtin.shell: "{{ package_manager_cmd }} {{ package_manager_opts }} | grep -E 'Repo-(id|name|status|mirrors|baseurl|filename)'"
+      ansible.builtin.shell: "export LC_ALL=C; {{ package_manager_cmd }} {{ package_manager_opts }} | grep -E 'Repo-(id|name|status|mirrors|baseurl|filename)'"
       vars:
         package_manager_cmd: "{{ guest_os_ansible_pkg_mgr[0:3] }} repolist"
         package_manager_opts: "{{ (guest_os_ansible_pkg_mgr == 'dnf') | ternary('--all ', '') }}--verbose"
