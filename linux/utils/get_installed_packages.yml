@@ -9,12 +9,27 @@
   ansible.builtin.set_fact:
     guest_installed_packages: []
 
+- name: "Get and Extract RPM packages for RedHat 6"
+  when:
+    - guest_os_family == "RedHat"
+    - (guest_os_ansible_distribution_major_ver | string == "6") or 
+      (guest_os_ansible_kernel is match("2.6"))
+  block:
+    - name: "Execute raw RPM query"
+      ansible.builtin.raw: "rpm -qa --queryformat '%{NAME}\n'"
+      delegate_to: "{{ vm_guest_ip }}"
+      register: rpm_raw_result
+    - name: "Set guest_installed_packages from raw output"
+      ansible.builtin.set_fact:
+        guest_installed_packages: "{{ rpm_raw_result.stdout_lines | map('trim') | select('search', '^[a-zA-Z0-9]') | list }}"
+
 - name: "Get installed packages on {{ guest_os_ansible_distribution }}"
   ansible.builtin.package_facts:
     manager: auto
   delegate_to: "{{ vm_guest_ip }}"
   register: guest_package_facts
   no_log: true
+  when: not (guest_os_family == "RedHat" and guest_os_ansible_distribution_major_ver | string == "6")
 
 - name: "Set fact of installed packages on {{ guest_os_ansible_distribution }}"
   ansible.builtin.set_fact:

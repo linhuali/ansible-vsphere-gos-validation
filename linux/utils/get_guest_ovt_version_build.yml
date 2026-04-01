@@ -48,6 +48,13 @@
     - name: "Get installed packages on guest OS"
       include_tasks: get_installed_packages.yml
 
+    - name: "Fallback for Legacy systems without RPM DB"
+      ansible.builtin.set_fact:
+        guest_installed_packages: "{{ guest_installed_packages + ['open-vm-tools-legacy-manual'] }}"
+      when:
+        - guest_installed_packages | length == 0
+        - is_legacy_redhat | default(false)
+
     # Check whether open-vm-tools or open-vm-tools-nox11 (for FreeBSD without GUI) is installed
     - name: "Set fact of open-vm-tools install type to 'package' for {{ guest_os_ansible_distribution }}"
       ansible.builtin.set_fact:

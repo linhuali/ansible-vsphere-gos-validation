@@ -23,14 +23,33 @@
     (add_host_in_memory_inventory_ip is undefined) or
     (not add_host_in_memory_inventory_ip)
 
+- name: "Pre-check if the target host is a legacy RedHat/MontaVista system"
+  ansible.builtin.raw: "cat /etc/redhat-release || uname -r"
+  register: os_discovery
+  ignore_errors: true
+  delegate_to: localhost
+  vars:
+    ansible_connection: ssh
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa,ssh-dss -o PubkeyAcceptedAlgorithms=+ssh-rsa"
+    ansible_host: "{{ add_host_in_memory_inventory_ip }}"
+    ansible_user: "{{ add_host_in_memory_inventory_user }}"
+    ansible_password: "{{ add_host_in_memory_inventory_pwd }}"
+
+- name: "Set legacy system flag based on discovery output"
+  ansible.builtin.set_fact:
+    is_legacy_redhat: "{{ 'Red Hat' in os_discovery.stdout or 'MontaVista' in os_discovery.stdout or '2.6.' in os_discovery.stdout }}"
+
 - name: Add host to playbook in-memory inventory
   ansible.builtin.add_host:
     hostname: "{{ add_host_in_memory_inventory_ip }}"
     groups: "{{ add_host_in_memory_inventory_gp | default(omit) }}"
     ansible_user: "{{ add_host_in_memory_inventory_user }}"
     ansible_password: "{{ add_host_in_memory_inventory_pwd }}"
-    ansible_ssh_common_args: "{{ add_host_in_memory_inventory_ssh_args | default('-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null') }}"
-    ansible_python_interpreter: "{{ add_host_in_memory_inventory_python | default(omit) }}"
+    ansible_ssh_common_args: >-
+      {{ add_host_in_memory_inventory_ssh_args | default('-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null') }}
+      {{ ' -o HostKeyAlgorithms=+ssh-rsa,ssh-dss -o PubkeyAcceptedAlgorithms=+ssh-rsa' if is_legacy_redhat else '' }}
+    ansible_python_interpreter: >-
+      {{ '/usr/local/bin/python2.7' if is_legacy_redhat else (add_host_in_memory_inventory_python | default(omit)) }}
     ansible_become: "{{ add_host_in_memory_inventory_become | default(false) }}"
     ansible_become_method: "{{ add_host_in_memory_inventory_become_mth | default(omit) }}"
     ansible_become_user: "{{ add_host_in_memory_inventory_become_usr | default(omit) }}"
