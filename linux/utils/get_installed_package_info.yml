@@ -33,6 +33,9 @@
 - block:
     - name: "Get information about package '{{ package_name }}'"
       ansible.builtin.command: "{{ package_query_cmd }} {{ package_name }}"
+      environment:
+        LC_ALL: "C"
+        LANG: "C"
       failed_when: false
       register: package_fact_result
       delegate_to: "{{ vm_guest_ip }}"
