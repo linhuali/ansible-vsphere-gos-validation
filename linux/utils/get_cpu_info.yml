@@ -11,6 +11,8 @@
   block:
     - name: "Get CPU number and cores per socket in guest OS"
       ansible.builtin.shell: "lscpu | grep -e '^CPU(s)' -e '^Core(s) per socket'"
+      environment:
+        LC_ALL: "C"
       delegate_to: "{{ vm_guest_ip }}"
       register: lscpu_result
 
