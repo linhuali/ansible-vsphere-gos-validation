@@ -13,6 +13,7 @@
     name: "{{ vm_name }}"
     networks:
       - name: "{{ linux_gosc_spec.network }}"
+        network_index: "{{ (vm_guest_os_distribution is search('CentOS 8.2')) | ternary(0, omit) }}"
         type: "{{ type }}"
         ip: "{{ linux_gosc_spec.ip | default(omit) }}"
         netmask: "{{ linux_gosc_spec.netmask | default(omit) }}"
