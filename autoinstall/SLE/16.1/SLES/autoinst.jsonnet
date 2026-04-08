@@ -39,9 +39,6 @@ local nicName = agama.findByID(agama.lshw, 'network').logicalname;
       "open-vm-tools-desktop"
     ]
   },
-  services: {
-    defaultTarget: "graphical",
-  },
 {% if new_user is defined and new_user %}
   user: {
     fullName: "{{ new_user }}",
