@@ -73,9 +73,6 @@ local nicName = agama.findByID(agama.lshw, 'network').logicalname;
      }
     ]
   },
-  bootloader: {
-    append: "net.ifnames=0 biosdevname=0 ide=nodma apm=off noresume edd=off mitigations=auto security=selinux"
-  },
   network: {
     connections: [
       {
