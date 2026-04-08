@@ -28,7 +28,7 @@ local nicName = agama.findByID(agama.lshw, 'network').logicalname;
   },
   software: {
     patterns: {
-      add: ["gnome"]
+      add: ["gnome", "gnome_basic", "x11"]
     },
     packages: [
       "openssh-server-config-rootlogin",
@@ -38,6 +38,9 @@ local nicName = agama.findByID(agama.lshw, 'network').logicalname;
       "open-vm-tools",
       "open-vm-tools-desktop"
     ]
+  },
+  services: {
+    defaultTarget: "graphical",
   },
 {% if new_user is defined and new_user %}
   user: {
@@ -69,6 +72,9 @@ local nicName = agama.findByID(agama.lshw, 'network').logicalname;
        ]
      }
     ]
+  },
+  bootloader: {
+    append: "net.ifnames=0 biosdevname=0 ide=nodma apm=off noresume edd=off mitigations=auto security=selinux"
   },
   network: {
     connections: [
