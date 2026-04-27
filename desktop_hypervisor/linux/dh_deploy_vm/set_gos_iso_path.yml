@@ -41,6 +41,7 @@
           ansible.builtin.get_url:
             url: "{{ dh_guest_iso_full_url }}"
             dest: "{{ dh_guest_iso_host_path }}"
+            tmp_dest: "{{ dh_host_download_path }}/"
             mode: "0777"
             validate_certs: false
             timeout: 1200
