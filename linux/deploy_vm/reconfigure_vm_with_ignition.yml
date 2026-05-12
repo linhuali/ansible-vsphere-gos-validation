@@ -26,11 +26,9 @@
 - name: "Wait for guest full name is collected by VMware Tools"
   include_tasks: ../../common/vm_wait_guest_fullname.yml
 
-# Set vm_python to auto
-- name: "Reset vm_python to auto"
+- name: "Set vm_python based on OS type"
   ansible.builtin.set_fact:
-    vm_python: "auto"
-  when: vm_python is defined and vm_python != "auto"
+    vm_python: "{{ (ova_guest_os_type == 'flatcar') | ternary('/opt/bin/python', 'auto') }}"
 
 # Get guest ip
 - name: "Get VM's guest IP address and add it to in-memory inventory"
