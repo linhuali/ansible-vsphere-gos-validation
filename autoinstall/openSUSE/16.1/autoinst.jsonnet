@@ -68,7 +68,7 @@ local nicName = agama.findByID(agama.lshw, 'network').logicalname;
         id: nicName,
         interface: nicName,
         method4: "auto",
-        method6: "disabled",
+        method6: "auto",
         ignoreAutoDns: false,
         status: "up",
         autoconnect: true
