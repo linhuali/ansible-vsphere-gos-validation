@@ -104,6 +104,15 @@ local nicName = agama.findByID(agama.lshw, 'network').logicalname;
         content: |||
           #!/bin/bash
           echo "Execute post-install script" >/dev/ttyS0
+
+          echo "Writing sysctl to disable IPv6..." >/dev/ttyS0
+          mkdir -p /etc/sysctl.d
+          cat <<EOF > /etc/sysctl.d/99-disable-ipv6.conf
+          net.ipv6.conf.all.disable_ipv6 = 1
+          net.ipv6.conf.default.disable_ipv6 = 1
+          net.ipv6.conf.lo.disable_ipv6 = 1
+          EOF
+
           echo "Config SSHd to permit root login" >/dev/ttyS0
           echo "PermitRootLogin yes" >/etc/ssh/sshd_config.d/10_root_login.conf
           echo "{{ autoinstall_complete_msg }}" >/dev/ttyS0
