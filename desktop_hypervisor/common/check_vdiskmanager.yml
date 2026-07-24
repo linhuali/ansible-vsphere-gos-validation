@@ -5,20 +5,18 @@
   when:
     - host_machine_type == "windows"
     - dh_host_installed_path is defined and dh_host_installed_path
-    #- dh_host_vdisk_manager_path is undefined or not dh_host_vdisk_manager_path
   block:
     - name: "Set vmware-vdiskmanager path"
       ansible.builtin.set_fact:
         dh_host_vdisk_manager_path: "{{ dh_host_installed_path }}\\vmware-vdiskmanager.exe"
+        
     - name: "Check vdiskmanager installed path in Windows host"
       include_tasks: ../../../windows/utils/win_check_file_exist.yml
       vars:
         win_check_file_exist_file: "{{ dh_host_vdisk_manager_path }}"
         vm_guest_ip: "{{ host_machine_hostname }}"
-    - name: "Display win_check_file_exist_result"
-      ansible.builtin.debug: var=win_check_file_exist_result
-      failed_when: not win_check_file_exist_result
-    - name: "Set fact of file existence"
+
+    - name: "Set fact of vdiskmanager existence in Windows"
       ansible.builtin.set_fact:
         dh_host_vdisk_manager_exists: "{{ win_check_file_exist_result }}"
 
@@ -29,10 +27,13 @@
     - dh_host_vdisk_manager_path is undefined or not dh_host_vdisk_manager_path
   block:
     - name: "Get vmware-vdiskmanager installed path in Linux host"
-      ansible.builtin.shell: "which vmware-vdiskmanager"
+      ansible.builtin.command: "which vmware-vdiskmanager"
       delegate_to: "{{ host_machine_hostname }}"
       register: lin_software_install_path
-    - name: "Set fact of vmware-vdiskmanager installed path"
+      changed_when: false
+      ignore_errors: true
+      
+    - name: "Set fact of vdiskmanager existence and path in Linux"
       ansible.builtin.set_fact:
-        dh_host_vdisk_manager_path: "{{ lin_software_install_path.stdout }}"
-        dh_host_vdisk_manager_exists: "{{ true if lin_software_install_path.stdout else false }}"
+        dh_host_vdisk_manager_exists: "{{ lin_software_install_path.rc == 0 }}"
+        dh_host_vdisk_manager_path: "{{ lin_software_install_path.stdout if lin_software_install_path.rc == 0 else '' }}"
