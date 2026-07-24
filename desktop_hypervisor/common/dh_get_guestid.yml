@@ -2,23 +2,45 @@
 # SPDX-License-Identifier: BSD-2-Clause
 ---
 # Get the guestID from the guest vmx file
-#
+
+# Initialize the guest_id fact to prevent undefined errors
+- name: "Initialize dh_guest_id"
+  ansible.builtin.set_fact:
+    dh_guest_id: ""
+
 - name: "Get the vmx file to local"
   include_tasks: dh_get_file.yml
   vars:
     file_src_path: "{{ dh_vm_vmx_path }}"
     file_dst_path: "{{ current_test_log_folder }}"
 
+# file_local_path is set by dh_get_file.yml and will be "" if it fails
 - name: "Set facts of local vmx path"
   ansible.builtin.set_fact:
     dh_vm_vmx_file_local: "{{ file_local_path }}"
 
-- name: "Get the guestID"
+# Only attempt to read the file if it was successfully downloaded
+- name: "Get the guestID from local vmx file"
   ansible.builtin.shell: |
-    cat "{{ dh_vm_vmx_file_local }}" |grep -o -E 'guest(OS|os) = ".*"'|cut -d '"' -f 2
+    cat "{{ dh_vm_vmx_file_local }}" | grep -o -E 'guest(OS|os) = ".*"' | cut -d '"' -f 2
   register: dh_guestid_result
+  changed_when: false
+  ignore_errors: true
+  when: dh_vm_vmx_file_local != ""
 
-- name: "Display the guestID"
-  when: dh_guestid_result.stdout is defined and dh_guestid_result.stdout
+# Set the final guest_id if the shell command succeeded
+- name: "Set the guestID fact"
   ansible.builtin.set_fact:
     dh_guest_id: "{{ dh_guestid_result.stdout }}"
+  when: 
+    - dh_vm_vmx_file_local != ""
+    - dh_guestid_result is defined
+    - dh_guestid_result.rc is defined
+    - dh_guestid_result.rc == 0
+    - dh_guestid_result.stdout is defined
+    - dh_guestid_result.stdout != ""
+
+- name: "Display the guestID"
+  ansible.builtin.debug:
+    msg: "Found Guest ID: {{ dh_guest_id }}"
+  when: dh_guest_id != ""
