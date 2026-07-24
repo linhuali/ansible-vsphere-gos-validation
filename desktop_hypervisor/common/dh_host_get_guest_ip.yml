@@ -7,6 +7,7 @@
 - name: "Initialize VM guest IP address"
   ansible.builtin.set_fact:
     dh_vm_guest_ip: ''
+    vm_guest_ip: ''
 
 - name: "Get the IP from Windows Guest"
   when: host_machine_type == "windows"
@@ -14,7 +15,7 @@
     - name: "Set fact of vmrun command for getting guest IP"
       ansible.builtin.set_fact:
         win_vmrun_get_ip_cmd: >-
-          Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws getGuestIPAddress "{{ dh_vm_vmx_path }}" -wait' -NoNewWindow
+          Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws getGuestIPAddress "{{ dh_vm_vmx_path }}" -wait' -NoNewWindow -Wait -PassThru
 
     - name: "Pull Guest IP with vmrun"
       ansible.windows.win_shell: "{{ win_vmrun_get_ip_cmd }}"
@@ -22,18 +23,13 @@
       retries: 20
       delegate_to: "{{ host_machine_hostname }}"
       register: win_get_ip_status
+      ignore_errors: true
       until:
         - win_get_ip_status.stdout_lines is defined
         - win_get_ip_status.stdout_lines | length > 0
         - win_get_ip_status.stdout_lines[0] is regex("^\d+\.\d+\.\d+\.\d+$")
         - win_get_ip_status.stdout_lines[0] != "0.0.0.0"
         - "'error' not in (win_get_ip_status.stdout_lines[0] | lower)"
-      failed_when:
-        - win_get_ip_status.stdout_lines is defined or win_get_ip_status.stdout_lines | length == 0
-        - >
-          win_get_ip_status.stdout_lines | length > 0 and
-          (win_get_ip_status.stdout_lines[0] == "0.0.0.0" or
-          'error' in (win_get_ip_status.stdout_lines[0] | lower))
 
     - name: "Set the fact of Guest IP"
       ansible.builtin.set_fact:
@@ -43,19 +39,20 @@
   when: host_machine_type == "linux"
   block:
     - name: "Pull Guest IP with vmrun"
-      ansible.builtin.shell: "vmrun getGuestIPAddress {{ dh_vm_vmx_path }} -wait"
+      ansible.builtin.command: "vmrun -T ws getGuestIPAddress {{ dh_vm_vmx_path }} -wait"
       become: yes
       become_user: "{{ dh_vm_username }}"
       delay: 20
       retries: "{{ dh_guest_getip_retry_times | default(10) }}"
       delegate_to: "{{ host_machine_hostname }}"
       register: lin_get_ip_status
+      ignore_errors: true
       until:
-        - lin_get_ip_status is defined
         - lin_get_ip_status.stdout_lines is defined
-        - lin_get_ip_status.stdout_lines | length != 0
+        - lin_get_ip_status.stdout_lines | length > 0
         - lin_get_ip_status.stdout_lines[0] is regex("^\d+\.\d+\.\d+\.\d+$")
         - "'error' not in (lin_get_ip_status.stdout_lines[0] | lower)"
+
     - name: "Set the fact of Guest IP"
       ansible.builtin.set_fact:
         get_ip_status: "{{ lin_get_ip_status }}"
@@ -64,10 +61,17 @@
   ansible.builtin.set_fact:
     dh_vm_guest_ip: "{{ get_ip_status.stdout_lines[0] }}"
     vm_guest_ip: "{{ get_ip_status.stdout_lines[0] }}"
+  when: 
+    - get_ip_status is defined
+    - get_ip_status.stdout_lines is defined
+    - get_ip_status.stdout_lines | length > 0
+    - "'error' not in (get_ip_status.stdout_lines[0] | lower)"
 
 - name: "Print VM guest IP address"
   ansible.builtin.debug: var=vm_guest_ip
+  when: vm_guest_ip != ''
 
 - name: "Display VM guest IP address"
   ansible.builtin.debug:
     msg: "Get VM '{{ dh_vm_vmx_path }}' guest IP address: {{ dh_vm_guest_ip }}"
+  when: dh_vm_guest_ip != ''
