@@ -15,8 +15,12 @@
   include_tasks: ../linux/utils/get_linux_tools_version.yml
 
 - name: "Set fact of tools version and build number"
+  when: 
+    - vmtools_version_build is defined
+    - vmtools_version_build.stdout_lines is defined
+    - vmtools_version_build.stdout_lines | length > 0
   ansible.builtin.set_fact:
-    vmtools_info_from_vmtoolsd: "{{ vmtools_version_build.stdout_lines[0] | default('') }}"
+    vmtools_info_from_vmtoolsd: "{{ vmtools_version_build.stdout_lines[0] }}"
 
 - name: "Print VMware Tools version and build"
   ansible.builtin.debug: var=vmtools_info_from_vmtoolsd
