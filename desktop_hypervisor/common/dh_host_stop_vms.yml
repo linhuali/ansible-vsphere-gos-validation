@@ -1,28 +1,66 @@
 # Copyright 2023-2026 VMware, Inc.
 # SPDX-License-Identifier: BSD-2-Clause
 ---
-- name: "Stop VMs if running in Windows Host"
-  ansible.windows.win_powershell:
-    script: |
-      cd "{{ dh_host_installed_path }}"
-      $RunningVMs = .\vmrun list | select-object -skip 1
-      Foreach ($RunningVM in $RunningVMs) {
-        .\vmrun stop "$RunningVM"
-      }
-  delegate_to: "{{ host_machine_hostname }}"
+- name: "Stop running VMs in Windows Host"
   when:
     - host_machine_type == "windows"
     - dh_host_installed
+  block:
+    - name: "Get list of running VMs in Windows Host"
+      ansible.windows.win_powershell:
+        script: |
+          cd "{{ dh_host_installed_path }}"
+          $RunningVMs = .\vmrun.exe list | Select-Object -Skip 1
+          # Output each VM path on a new line, skipping empty lines
+          if ($RunningVMs) {
+              foreach ($RunningVM in $RunningVMs) {
+                  if (-not [string]::IsNullOrWhiteSpace($RunningVM)) {
+                      Write-Output $RunningVM.Trim()
+                  }
+              }
+          }
+      delegate_to: "{{ host_machine_hostname }}"
+      register: win_running_vms
+      ignore_errors: true
 
-- name: "Stop VMs if running before un/install_workstation"
-  ansible.builtin.shell: |
-    vms=`vmrun list | grep -e '.*.vmx'`
-    for vm in $vms; do vmrun stop $vm; done
-  delegate_to: "{{ host_machine_hostname }}"
-  become: true
-  become_user: "{{ dh_vm_username }}"
-  async: 180
-  poll: 10
+    - name: "Execute stop command on each Windows VM"
+      ansible.windows.win_powershell:
+        script: |
+          cd "{{ dh_host_installed_path }}"
+          .\vmrun.exe stop "{{ item }}" hard
+      delegate_to: "{{ host_machine_hostname }}"
+      loop: "{{ win_running_vms.output | default([]) }}"
+      ignore_errors: true
+      when:
+        - win_running_vms.output is defined
+        - win_running_vms.output | length > 0
+
+- name: "Stop running VMs in Linux Host"
   when:
     - host_machine_type == "linux"
     - dh_host_installed
+  block:
+    - name: "Get list of running VMs in Linux Host"
+      ansible.builtin.command: "vmrun -T ws list"
+      delegate_to: "{{ host_machine_hostname }}"
+      become: true
+      become_user: "{{ dh_vm_username | default('root') }}"
+      register: lin_running_vms_output
+      changed_when: false
+      ignore_errors: true
+
+    - name: "Extract valid VM paths from output in Linux Host"
+      ansible.builtin.set_fact:
+        lin_running_vms: "{{ lin_running_vms_output.stdout_lines | select('match', '.*\\.vmx') | list }}"
+      when: lin_running_vms_output.stdout_lines is defined
+
+    - name: "Execute stop command on each Linux VM"
+      ansible.builtin.command: "vmrun -T ws stop '{{ item }}' hard"
+      delegate_to: "{{ host_machine_hostname }}"
+      become: true
+      become_user: "{{ dh_vm_username | default('root') }}"
+      loop: "{{ lin_running_vms | default([]) }}"
+      ignore_errors: true
+      when:
+        - lin_running_vms is defined
+        - lin_running_vms | length > 0
