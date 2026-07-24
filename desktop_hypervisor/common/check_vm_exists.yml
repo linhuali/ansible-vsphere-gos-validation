@@ -8,7 +8,7 @@
 # Return:
 #   dh_vm_check_exist: true or false.
 #   dh_vm_vmx_check_exist: true or false.
-#
+
 - name: "Initialize the fact of running VM existence status"
   ansible.builtin.set_fact:
     dh_vm_check_exist: false
@@ -28,8 +28,8 @@
       when:
         - win_powershell_cmd_output.rc is defined
         - win_powershell_cmd_output.rc == 0
-        - win_powershell_cmd_output.stdout_lines is defined
-        - "dh_vm_vmx_path in win_powershell_cmd_output.stdout_lines"
+        - win_powershell_cmd_output.stdout is defined
+        - dh_vm_vmx_path in win_powershell_cmd_output.stdout
       ansible.builtin.set_fact:
         dh_vm_check_exist: true
         dh_vm_vmx_check_exist: true
@@ -46,24 +46,22 @@
           ansible.builtin.set_fact:
             dh_vm_vmx_check_exist: "{{ win_check_file_exist_result }}"
 
-- name: "Initialize the fact of running VM existence status"
-  ansible.builtin.set_fact:
-    dh_vm_check_exist: false
-    dh_vm_vmx_check_exist: false
-
 - name: "Check Guest VM exists on Linux Host"
   when: host_machine_type == "linux"
   block:
     - name: "Get running VM list"
-      ansible.builtin.shell: "vmrun -T ws list"
+      ansible.builtin.command: "vmrun -T ws list"
       become: true
       become_user: "{{ dh_vm_username }}"
       delegate_to: "{{ host_machine_hostname }}"
       register: vmrun_list_result
+      changed_when: false
+      ignore_errors: true
 
     - name: "Set fact of running VM exists"
       when:
-        - vmrun_list_result is defined
+        - vmrun_list_result.rc is defined
+        - vmrun_list_result.rc == 0
         - vmrun_list_result.stdout is defined
         - dh_vm_vmx_path in vmrun_list_result.stdout
       ansible.builtin.set_fact:
@@ -77,7 +75,6 @@
           ansible.builtin.stat:
             path: "{{ dh_vm_vmx_path }}"
           register: stat_result
-          ignore_errors: true
           delegate_to: "{{ host_machine_hostname }}"
           become: true
           become_user: "{{ dh_vm_username }}"
