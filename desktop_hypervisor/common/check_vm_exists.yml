@@ -59,14 +59,14 @@
       ignore_errors: true
 
     - name: "Set fact of running VM exists"
+      ansible.builtin.set_fact:
+        dh_vm_check_exist: true
+        dh_vm_vmx_check_exist: true
       when:
         - vmrun_list_result.rc is defined
         - vmrun_list_result.rc == 0
         - vmrun_list_result.stdout is defined
         - dh_vm_vmx_path in vmrun_list_result.stdout
-      ansible.builtin.set_fact:
-        dh_vm_check_exist: true
-        dh_vm_vmx_check_exist: true
 
     - name: "Check VM vmx file exists"
       when: not dh_vm_check_exist
