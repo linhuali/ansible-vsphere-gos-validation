@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: BSD-2-Clause
 ---
 - name: "Get the guestID"
-  when: dh_guest_id is undefined or not dh_guest_id
   include_tasks: ../../common/dh_get_guestid.yml
+  when: dh_guest_id is undefined or not dh_guest_id
 
 - name: "Initialize the file paths"
   ansible.builtin.set_fact:

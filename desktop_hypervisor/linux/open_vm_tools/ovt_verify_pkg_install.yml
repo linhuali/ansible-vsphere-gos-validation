@@ -15,27 +15,27 @@
     - name: "Test case block"
       block:
         - name: "Set update VMware tools by default"
-          when: dh_update_vmtools is undefined
           ansible.builtin.set_fact:
             dh_update_vmtools: true
+          when: dh_update_vmtools is undefined
 
         - name: "VM has open-vm-tools installed and dh_update_vmtools is set false"
-          when: not dh_update_vmtools | bool
           include_tasks: ../../../common/skip_test_case.yml
           vars:
             skip_msg: "Test case '{{ ansible_play_name }}' is skipped because dh_update_vmtools is set to: {{ dh_update_vmtools }}"
             skip_reason: "Skipped"
+          when: not dh_update_vmtools | bool
 
         - name: "Skip test case"
+          include_tasks: ../../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Skip test case due to {{ dh_guest_id }} is not supported by {{ current_testcase_name }}'"
+            skip_reason: "Not Supported"
           when: >
             dh_guest_id is defined and
             (dh_guest_id is match('.*other.*linux.*') or
             dh_guest_id is match('.*rhel(5|6).*') or
             (dh_guest_id is match('.*opensuse.*') and "15" in dh_guest_iso_path))
-          include_tasks: ../../../common/skip_test_case.yml
-          vars:
-            skip_msg: "Skip test case due to {{ dh_guest_id }} is not supported by {{ current_testcase_name }}'"
-            skip_reason: "Not Supported"
 
         - name: "Test setup"
           include_tasks: ../../common/dh_test_setup.yml
@@ -44,12 +44,12 @@
             require_dh_vm_exists: "{{ true if (dh_new_vm is undefined or not dh_new_vm | bool) else false }}"
 
         - name: "Make sure Guest VM is exists"
-          when: dh_new_vm is defined and dh_new_vm | bool
           ansible.builtin.assert:
             that:
               - dh_vm_exists
               - dh_vm_vmx_exists
             fail_msg: "VM with path '{{ dh_vm_vmx_path }}' is not exists, please deploy vm first."
+          when: dh_new_vm is defined and dh_new_vm | bool
 
         # Initialize variables
         - name: "Initialize variables for installing open-vm-tools"
@@ -58,6 +58,8 @@
             install_tools: false
 
         - name: "Set the fact for uninstalling open-vm-tools"
+          ansible.builtin.set_fact:
+            uninstall_tools: true
           when:
             - vmtools_info_from_vmtoolsd is defined
             - vmtools_info_from_vmtoolsd
@@ -65,8 +67,6 @@
             - dh_guest_id is not match('.*centos7.*')
             - dh_guest_id is not match('.*rhel7.*')
             #- dh_guest_id is not match('.*opensuse.*')
-          ansible.builtin.set_fact:
-            uninstall_tools: true
 
         - name: "Set facts of open-vm-tools packages, processes and service"
           include_tasks: ../../../linux/utils/set_ovt_facts.yml
@@ -78,30 +78,30 @@
           include_tasks: ../../../linux/open_vm_tools/get_install_uninstall_cmd.yml
 
         - name: "Uninstall open-vm-tools for reinstall"
-          when:
-            - uninstall_tools is defined
-            - uninstall_tools
           #include_tasks: ../../../linux/open_vm_tools/uninstall_ovt.yml
           include_tasks: uninstall_ovt.yml
           vars:
             vm_guest_ip: "{{ dh_vm_guest_ip }}"
+          when:
+            - uninstall_tools is defined
+            - uninstall_tools
 
         # Initialize the variable for installing tools
         - name: "Set the fact for installing tools"
+          ansible.builtin.set_fact:
+            install_tools: true
           when: >
             (vmtools_is_installed is undefined) or
             (not vmtools_is_installed) or
             (vmtools_is_removed is defined and vmtools_is_removed)
-          ansible.builtin.set_fact:
-            install_tools: true
 
         - name: "Install open-vm-tools packages"
-          when:
-            - install_tools is defined
-            - install_tools
           include_tasks: install_ovt.yml
           vars:
             vm_guest_ip: "{{ dh_vm_guest_ip }}"
+          when:
+            - install_tools is defined
+            - install_tools
 
         - name: "Reset guest OS in desktop hypervisor"
           include_tasks: ../../common/dh_host_power_vm.yml

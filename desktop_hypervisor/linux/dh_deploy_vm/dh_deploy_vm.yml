@@ -12,11 +12,11 @@
     - name: "Test case block"
       block:
         - name: "Reset the dh_vm_deploy_method per dh_guest_iso_path"
+          ansible.builtin.set_fact:
+            dh_vm_deploy_method: "{{ dh_guest_iso_path.split('.')[-1] | lower }}"
           when:
             - dh_guest_iso_path is defined
             - dh_guest_iso_path | lower is match('.*.(iso|ova|ovf)')
-          ansible.builtin.set_fact:
-            dh_vm_deploy_method: "{{ dh_guest_iso_path.split('.')[-1] | lower }}"
 
         - name: "Test setup"
           include_tasks: ../../common/dh_test_setup.yml
@@ -47,12 +47,12 @@
                 - dh_host_vdisk_manager_exists is undefined or not dh_host_vdisk_manager_exists | bool
 
         - name: "Make sure no VM running"
-          when: dh_new_vm is defined and dh_new_vm | bool
           ansible.builtin.assert:
             that:
               - not dh_vm_exists
               #- not dh_vm_vmx_exists
             fail_msg: "VM with path '{{ dh_vm_vmx_path }}' exists, please set parameter 'dh_vm_new_name' or 'dh_vm_path' to other values."
+          when: dh_new_vm is defined and dh_new_vm | bool
 
         - name: "Create {{ dh_vm_path }} on Linux Host"
           ansible.builtin.shell: |
@@ -85,18 +85,18 @@
             unattend_iso_cache: "{{ tmp_path }}"
 
         - name: "Deploy VM by creating a new VM and install OS from ISO image on it"
-          when: (dh_vm_deploy_method is undefined) or (dh_vm_deploy_method == "iso")
           include_tasks: deploy_vm_from_iso.yml
+          when: (dh_vm_deploy_method is undefined) or (dh_vm_deploy_method == "iso")
 
         # OVA deployment is applicable for OS releases which have OVA deliverables, e.g.
         # VMware Photon OS, Ubuntu cloud image, Flatcar, or Amazon Linux, etc
         - name: "Deploy VM from an OVA/OVF template"
-          when: (dh_vm_deploy_method is defined) and (dh_vm_deploy_method == "ova" or dh_vm_deploy_method == "ovf")
           include_tasks: deploy_vm_from_ova.yml
+          when: (dh_vm_deploy_method is defined) and (dh_vm_deploy_method == "ova" or dh_vm_deploy_method == "ovf")
 
         - name: "Print VM guest IP address"
-          when: vm_guest_ip is defined and vm_guest_ip
           ansible.builtin.debug: var=vm_guest_ip
+          when: vm_guest_ip is defined and vm_guest_ip
       rescue:
         - name: "Take a VM screenshot when autoinstall fails"
           include_tasks: ../../common/dh_vm_take_screenshot.yml

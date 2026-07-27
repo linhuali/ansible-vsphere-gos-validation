@@ -14,10 +14,10 @@
 - name: "Get VM existence status"
   include_tasks: ../../common/dh_host_check_vm_exists.yml
 - name: "Stop Guest VM"
-  when: dh_vm_check_exist
   include_tasks: ../../common/dh_host_power_vm.yml
   vars:
     vm_power_option: "stop"
+  when: dh_vm_check_exist
 
 - name: "Update vmx file"
   when: dh_vm_vmx_file_local is defined and dh_vm_vmx_file_local
@@ -45,7 +45,6 @@
         vm_guest_ip: localhost
 
 - name: "Copy new VM vmx file from local to Linux host"
-  when: host_machine_type == "linux"
   include_tasks: ../../../common/transfer_file_remote.yml
   vars:
     transfer_file_remote_src: "{{ dh_vm_vmx_file_local }}"
@@ -53,6 +52,7 @@
     transfer_file_remote_server: "{{ host_machine_hostname }}"
     transfer_file_remote_mode: "0777"
     transfer_file_remote_force: "true"
+  when: host_machine_type == "linux"
 
 - name: "Power on VM"
   include_tasks: ../../common/dh_host_power_vm.yml
