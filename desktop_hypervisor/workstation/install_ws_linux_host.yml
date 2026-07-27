@@ -67,10 +67,10 @@
       - "Downloaded Workstation installation file path: {{ ws_install_file_path }}"
 
 - name: "Initialize Workstation installation command"
-  when: workstation_install_path is undefined or not workstation_install_path
   ansible.builtin.set_fact:
     ws_install_cmd: >-
       {{ ws_install_file_path }} --console --required --eulas-agreed
+  when: workstation_install_path is undefined or not workstation_install_path
 
 #- name: "Add Workstation serial number to install command"
 #  when:
@@ -190,9 +190,9 @@
         ws_build_number: "{{ ws_version.stdout.split()[-1] | regex_search('[0-9]+') }}"
 
 - name: "Set fact of Desktop Hypervisor is installed"
-  when:
-    - ws_build_version == expected_ws_build_version
-    - ws_build_number == expected_ws_build_number
   ansible.builtin.set_fact:
     dh_host_installed: true
     dh_host_installed_path: "{{ ws_cmd_path }}"
+  when:
+    - ws_build_version == expected_ws_build_version
+    - ws_build_number == expected_ws_build_number

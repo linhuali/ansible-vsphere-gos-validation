@@ -31,12 +31,12 @@
           when: dh_host_installed is undefined or not (dh_host_installed | bool)
 
         - name: "Uninstall Workstation in Windows host"
-          when: host_machine_type == "windows"
           include_tasks: uninstall_ws_windows_host.yml
+          when: host_machine_type == "windows"
 
         - name: "Uninstall Workstation in Linux host"
-          when: host_machine_type == "linux"
           include_tasks: uninstall_ws_linux_host.yml
+          when: host_machine_type == "linux"
 
       rescue:
         - name: "Test case failure"
