@@ -34,8 +34,8 @@
   include_tasks: ../../common/handle_dh_vm_guest_id.yml
 
 - name: "Prepare for Ubuntu installation"
-  when: dh_vm_guest_id is match('ubuntu.*')
   include_tasks: ../../../linux/deploy_vm/ubuntu/prepare_ubuntu_iso_install.yml
+  when: dh_vm_guest_id is match('ubuntu.*')
 
 - name: "Prepare OS install ISO file"
   include_tasks: set_gos_iso_path.yml
@@ -52,18 +52,18 @@
     - shell_mkdir_result.stderr
 # Prepare Autounattend ISO file
 - name: "Set fact of Autounattend ISO file name"
-  when:
-    - dh_guest_unattend_install_conf is not match('Ubuntu/Server/')
-    - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Subiquity')
   ansible.builtin.set_fact:
     unattend_install_iso: "{{ guest_id }}{{ '_'.join(''.join(dh_guest_unattend_install_conf.split('.')[:-1]).split('/')) }}-{{ current_test_timestamp }}.iso"
     #unattend_install_iso: "{{ dh_vm_guest_id }}-{{ dh_vm_firmware }}-{{ dh_vm_boot_disk_controller }}-{{ iso_timestamp }}.iso"
+  when:
+    - dh_guest_unattend_install_conf is not match('Ubuntu/Server/')
+    - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Subiquity')
 - name: "Set fact of Autounattend ISO file name"
+  ansible.builtin.set_fact:
+    unattend_install_iso: "seed.iso"
   when: >
     dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
     dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
-  ansible.builtin.set_fact:
-    unattend_install_iso: "seed.iso"
 - name: "Set fact of target Autounattend ISO file path"
   ansible.builtin.set_fact:
     dh_vm_unattend_iso_path: "{{ dh_vm_path }}/{{ unattend_install_iso }}"
@@ -71,12 +71,11 @@
 - name: "Test case block"
   block:
     - name: "Check dh_guest_unattend_install_conf"
-      when: dh_guest_unattend_install_conf is undefined or not dh_guest_unattend_install_conf
       ansible.builtin.debug:
         msg: "dh_guest_unattend_install_conf is not defined or set to a file path, will not generate unattend iso file"
+      when: dh_guest_unattend_install_conf is undefined or not dh_guest_unattend_install_conf
 
     - name: "Generate unattend install iso file"
-      when: dh_guest_unattend_install_conf is defined and dh_guest_unattend_install_conf
       include_tasks: ../../../linux/deploy_vm/create_unattend_install_iso.yml
       vars:
         #guest_id: "{{ dh_vm_guest_id }}"
@@ -84,6 +83,7 @@
         vm_username: "{{ dh_vm_username }}"
         vm_password: "{{ dh_vm_password }}"
         os_install_iso_list_len: 1
+      when: dh_guest_unattend_install_conf is defined and dh_guest_unattend_install_conf
 
     - name: "Copy unattend install iso to Linux host and remove it from datastore"
       when: is_vsphere_env
@@ -150,32 +150,32 @@
       ansible.builtin.debug: var=gen_vm_vmx_file_result
 
     - name: "set the iso path for Ubuntu Server / Ubuntu desktop 23.04 or later"
+      ansible.builtin.set_fact:
+        dh_guest_iso_path: "{{ dh_vm_path }}/{{ dh_guest_iso_file_name }}"
       when: >
         dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
         dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
-      ansible.builtin.set_fact:
-        dh_guest_iso_path: "{{ dh_vm_path }}/{{ dh_guest_iso_file_name }}"
 
     - name: "Add VM disk and CDROM config to vmx file"
+      include_tasks: ../../common/set_disk_cdrom_in_vmx.yml
       when:
         - dh_guest_unattend_install_conf is not match('Photon')
         - dh_guest_unattend_install_conf is not match('Debian')
         - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Ubiquity')
         - dh_guest_unattend_install_conf is not match('FreeBSD')
         - dh_guest_unattend_install_conf is not match('Pardus')
-      include_tasks: ../../common/set_disk_cdrom_in_vmx.yml
 
     - name: "Add VM disk and replace CDROM config to vmx file"
+      include_tasks: ../../common/set_disk_cdrom_in_vmx.yml
+      vars:
+        dh_guest_iso_path: "{{ dh_vm_unattend_iso_path }}"
+        unattend_install_iso: "{{ dh_vm_unattend_iso_path }}"
       when: >
         dh_guest_unattend_install_conf is match('Photon') or
         dh_guest_unattend_install_conf is match('Debian') or
         dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Ubiquity') or
         dh_guest_unattend_install_conf is match('FreeBSD') or
         dh_guest_unattend_install_conf is match('Pardus')
-      include_tasks: ../../common/set_disk_cdrom_in_vmx.yml
-      vars:
-        dh_guest_iso_path: "{{ dh_vm_unattend_iso_path }}"
-        unattend_install_iso: "{{ dh_vm_unattend_iso_path }}"
 
     - name: "Copy new VM vmx file from local to Linux host"
       include_tasks: ../../../common/transfer_file_remote.yml
