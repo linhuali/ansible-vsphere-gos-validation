@@ -5,8 +5,7 @@
 #   power_option: start, stop, reset, suspend, pause, unpause
 ---
 - name: "Execute Workstation vmrun"
-  ansible.builtin.shell: |
-    vmrun -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} {{ power_option }} {{ dh_vm_vmx_path }} {{ extra_option }}
+  ansible.builtin.command: "vmrun -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} {{ power_option }} {{ dh_vm_vmx_path }} {{ extra_option | default('') }}"
   delegate_to: "{{ host_machine_hostname }}"
   become: true
   become_user: "{{ dh_vm_username }}"
@@ -20,15 +19,14 @@
  #   - "'VMware Tools' not in ws_vmrun_power.stdout_lines[0]"
 
 - name: "Pause 90 seconds after {{ power_option }} VM"
+  ansible.builtin.pause:
+    seconds: 90
   when: >
     power_option == "start" or
     power_option == "reset"
-  ansible.builtin.pause:
-    seconds: 90
 
 - name: "Get VM status"
-  ansible.builtin.shell: |
-    vmrun -T ws list
+  ansible.builtin.command: "vmrun -T ws list"
   delegate_to: "{{ host_machine_hostname }}"
   become: true
   become_user: "{{ dh_vm_username }}"
@@ -39,11 +37,11 @@
     - "'Error' in ws_vmrun_list.stdout_lines[0]"
 
 - name: "Set fact of VM existence status"
-  when: dh_vm_vmx_path in ws_vmrun_list.stdout
   ansible.builtin.set_fact:
     dh_vm_exists: true
+  when: dh_vm_vmx_path in ws_vmrun_list.stdout
 
-- name: "Set fact of VM existence status"
-  when: dh_vm_vmx_path not in ws_vmrun_list.stdout
+- name: "Set fact of VM non-existence status"
   ansible.builtin.set_fact:
     dh_vm_exists: false
+  when: dh_vm_vmx_path not in ws_vmrun_list.stdout
