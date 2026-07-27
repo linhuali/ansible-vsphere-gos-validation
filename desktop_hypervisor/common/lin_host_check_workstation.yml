@@ -22,9 +22,10 @@
     - dh_host_installed_path is undefined or not dh_host_installed_path
   block:
     - name: "Get Workstation installed path in Linux host"
-      ansible.builtin.shell: "which vmware"
+      ansible.builtin.command: "which vmware"
       delegate_to: "{{ host_machine_hostname }}"
       register: lin_software_install_path
+      
     - name: "Set fact of Workstation installed path"
       ansible.builtin.set_fact:
         dh_host_installed_path: "{{ lin_software_install_path.stdout }}"

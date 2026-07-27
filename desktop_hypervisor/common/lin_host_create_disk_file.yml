@@ -37,7 +37,7 @@
       "{{ dh_host_vdisk_manager_path }}" -c -s {{ disk_file_size }} -a {{ disk_controller }} -t {{ disk_type_id | default(1) | int }} "{{ disk_file_path }}"
 
 - name: "Create new VM disk file"
-  ansible.builtin.shell: "{{ lin_vdisk_manager_cmd }}"
+  ansible.builtin.command: "{{ lin_vdisk_manager_cmd }}"
   delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Get disk file status"
