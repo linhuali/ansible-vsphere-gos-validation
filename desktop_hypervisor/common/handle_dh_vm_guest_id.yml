@@ -9,36 +9,39 @@
     in_vim_format: false
 
 - name: "Set fact of configured guest ID in vim format"
-  when: dh_vm_guest_id is match("^[a-zA-Z0-9_]+Guest$")
   ansible.builtin.set_fact:
     in_vim_format: true
+  when: dh_vm_guest_id is match("^[a-zA-Z0-9_]+Guest$")
 
 - name: "Handle Other 64-Bit situation"
-  when: dh_vm_guest_id == "otherGuest64"
   ansible.builtin.set_fact:
     dh_vm_guest_id: "other-64"
+  when: dh_vm_guest_id == "otherGuest64"
 
 - name: "Convert configured vim format guest ID"
   when: in_vim_format
   block:
     - name: "Convert 'Server' to 'srv' in guest ID firstly"
-      when: "'Server' in dh_vm_guest_id"
       ansible.builtin.set_fact:
         dh_vm_guest_id: "{{ dh_vm_guest_id | replace('Server', 'srv') }}"
+      when: "'Server' in dh_vm_guest_id"
+
     - name: "Handle contain '_64Guest' situation"
-      when: dh_vm_guest_id is match("^[a-zA-Z0-9]+_64Guest$")
       ansible.builtin.set_fact:
         dh_vm_guest_id: "{{ dh_vm_guest_id.split('Guest')[0] | replace('_', '-') | replace('Linux', 'linux') }}"
+      when: dh_vm_guest_id is match("^[a-zA-Z0-9]+_64Guest$")
+
     - name: "Handle contain '64Guest' situation"
-      when: dh_vm_guest_id is match("^[a-zA-Z0-9]+64Guest$")
       ansible.builtin.set_fact:
         dh_vm_guest_id: "{{ dh_vm_guest_id.split('Guest')[0] | replace('64', '-64') | replace('Linux', 'linux') }}"
+      when: dh_vm_guest_id is match("^[a-zA-Z0-9]+64Guest$")
+
     - name: "Handle contain 'Guest' situation"
-      when: dh_vm_guest_id is match("^[a-zA-Z0-9]+(?!64)Guest$")
       ansible.builtin.set_fact:
         dh_vm_guest_id: "{{ dh_vm_guest_id.split('Guest')[0] | replace('Linux', 'linux') }}"
+      when: dh_vm_guest_id is match("^[a-zA-Z0-9]+(?!64)Guest$")
+
     - name: "Handle Photon OS situation"
-      when: "'photon' in dh_vm_guest_id | lower"
       ansible.builtin.set_fact:
         dh_vm_guest_id: "vmware-photon-64"
 
