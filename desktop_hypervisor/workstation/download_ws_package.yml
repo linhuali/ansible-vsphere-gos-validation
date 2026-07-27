@@ -23,14 +23,14 @@
   ansible.builtin.debug: var=download_ws_result
 
 - name: "Set fact of the Workstation installation package name"
+  ansible.builtin.set_fact:
+    ws_install_file_path: "{{ download_ws_result.dest }}"
+    ws_install_file_name: "{{ download_ws_result.dest | basename }}"
   when:
     - download_ws_result.status_code is defined
     - download_ws_result.status_code == 200
     - download_ws_result.dest is defined
     - download_ws_result.dest
-  ansible.builtin.set_fact:
-    ws_install_file_path: "{{ download_ws_result.dest }}"
-    ws_install_file_name: "{{ download_ws_result.dest | basename }}"
 
 - name: "Display the file name of downloaded Workstation installation package"
   ansible.builtin.debug:
@@ -39,17 +39,17 @@
       - "Workstation installation package is downloaded to: {{ ws_install_file_path }}"
 
 - name: "Check downloaded Workstation installation package for Linux host"
-  when: host_machine_type == "linux"
   ansible.builtin.assert:
     that:
       - ws_install_file_name
       - ws_install_file_name.split('.')[-1] | lower == "bundle"
     fail_msg: "Downloaded Workstation installation file type is: '{{ ws_install_file_name.split('.')[-1] }}', not for Linux host."
+  when: host_machine_type == "linux"
 
 - name: "Check downloaded Workstation installation package for Windows host"
-  when: host_machine_type == "windows"
   ansible.builtin.assert:
     that:
       - ws_install_file_name
       - ws_install_file_name.split('.')[-1] | lower == "exe"
     fail_msg: "Downloaded Workstation installation file type is: '{{ ws_install_file_name.split('.')[-1] }}', not for Windows host."
+  when: host_machine_type == "windows"

@@ -27,13 +27,13 @@
   ansible.builtin.set_fact:
     dh_host_installed: "{{ win_software_is_installed }}"
 - name: "Uninstall Workstation if it's installed"
-  when: dh_host_installed
   include_tasks: ../../windows/utils/win_execute_cmd.yml
   vars:
     win_powershell_cmd: >-
       Install-PackageProvider -Name Nuget -Confirm:$false -Force -ForceBootstrap;
       Get-Package -Name "VMware Workstation*" | Uninstall-Package
     vm_guest_ip: "{{ host_machine_hostname }}"
+  when: dh_host_installed
 
 - name: "Initialize the facts of Workstation installation file"
   ansible.builtin.set_fact:
@@ -87,13 +87,13 @@
       {{ ws_install_file_path ~ ' /s /v /qn EULAS_AGREED=1 AUTOSOFTWAREUPDATE=0 DATACOLLECTION=0 REBOOT=ReallySuppress' }}
 
 - name: "Add Workstation install path to install command"
+  ansible.builtin.set_fact:
+    ws_install_cmd: >-
+      {{ ws_install_file_path ~ ' /s /v /qn EULAS_AGREED=1 AUTOSOFTWAREUPDATE=0 DATACOLLECTION=0 REBOOT=ReallySuppress INSTALLDIR="' ~ workstation_install_path ~ '"' }}
   when:
     - workstation_install_path is defined
     - workstation_install_path
     - workstation_serial_number is undefined or not workstation_serial_number
-  ansible.builtin.set_fact:
-    ws_install_cmd: >-
-      {{ ws_install_file_path ~ ' /s /v /qn EULAS_AGREED=1 AUTOSOFTWAREUPDATE=0 DATACOLLECTION=0 REBOOT=ReallySuppress INSTALLDIR="' ~ workstation_install_path ~ '"' }}
 
 #- name: "Add Workstation serial number to install command"
 #  when:
