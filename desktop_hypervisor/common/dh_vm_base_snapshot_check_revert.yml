@@ -3,15 +3,13 @@
 ---
 # Check if base snapshot exists when parameter is undefined
 - name: "Check if base snapshot exists"
-  when: base_snapshot_exists is undefined or not base_snapshot_exists
+  when: base_snapshot_exists is undefined or not (base_snapshot_exists | bool)
   block:
     - name: "Check if snapshot {{ base_snapshot_name }} exists"
-      when: >
-        (dh_new_vm is undefined) or
-        (not dh_new_vm | bool)
       include_tasks: dh_vm_check_snapshot_exist.yml
       vars:
         snapshot_name: "{{ base_snapshot_name }}"
+      when: dh_new_vm is undefined or not (dh_new_vm | bool)
 
     - name: "Set fact of base snapshot existence"
       ansible.builtin.set_fact:
@@ -24,13 +22,13 @@
           include_tasks: dh_host_power_vm.yml
           vars:
             vm_power_option: "stop"
-          when: dh_vm_exists
+          when: dh_vm_exists | default(false) | bool
+
         - name: "Take a base snapshot if it does not exist"
           include_tasks: dh_vm_create_base_snapshot.yml
 
 - name: "Revert to snapshot {{ base_snapshot_name }}"
-  when:
-    - base_snapshot_exists | bool
   include_tasks: dh_vm_revert_snapshot.yml
   vars:
     snapshot_name: "{{ base_snapshot_name }}"
+  when: base_snapshot_exists | default(false) | bool

@@ -5,6 +5,7 @@
   include_tasks: dh_vm_take_vm_snapshot.yml
   vars:
     take_snapshot_name: "{{ base_snapshot_name }}"
-- name: Set fact of base snapshot existence
+
+- name: "Set fact of base snapshot existence"
   ansible.builtin.set_fact:
     base_snapshot_exists: true

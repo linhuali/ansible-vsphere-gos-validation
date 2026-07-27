@@ -14,13 +14,20 @@
   ansible.builtin.set_fact:
     snapshot_exist: false
 
-- name: "Loop snapshot list to find specified snapshot"
+- name: "Check if snapshot exists in guest_snapshots (vSphere)"
+  ansible.builtin.set_fact:
+    snapshot_exist: "{{ vm_snapshot_facts.guest_snapshots.snapshots | selectattr('name', 'equalto', snapshot_name) | length >= 1 }}"
   when:
     - vm_snapshot_facts is defined
     - vm_snapshot_facts.guest_snapshots is defined
     - vm_snapshot_facts.guest_snapshots.snapshots is defined
+
+- name: "Check if snapshot exists in stdout_lines (Desktop Hypervisor)"
   ansible.builtin.set_fact:
-    snapshot_exist: "{{ vm_snapshot_facts.guest_snapshots.snapshots | selectattr('name', 'equalto', snapshot_name) | length == 1 }}"
+    snapshot_exist: "{{ snapshot_name in vm_snapshot_facts.stdout_lines }}"
+  when:
+    - vm_snapshot_facts is defined
+    - vm_snapshot_facts.stdout_lines is defined
 
 - name: "Snapshot {{ snapshot_name }} exist: {{ snapshot_exist }}"
   ansible.builtin.debug:
