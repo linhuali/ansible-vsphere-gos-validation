@@ -44,6 +44,7 @@
 - name: "Make sure vmware-vdiskmanager.exe tool exists"
   ansible.builtin.assert:
     that:
+      - win_check_file_exist_result is defined
       - win_check_file_exist_result
     fail_msg: "vmware-vdiskmanager.exe tool can not be found in this path '{{ dh_host_vdisk_manager_path }}' in Windows host."
 
@@ -66,5 +67,6 @@
 - name: "Make sure disk file created"
   ansible.builtin.assert:
     that:
+      - win_check_file_exist_result is defined
       - win_check_file_exist_result
     fail_msg: "Disk file '{{ disk_file_path }}' can not be found in Windows host."

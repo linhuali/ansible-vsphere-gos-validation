@@ -66,15 +66,14 @@
             vm_guest_ip: localhost
 
 - name: "Copy new VM vmx file from local to Windows host"
-  when: host_machine_type == "windows"
   include_tasks: ../../windows/utils/win_copy_file_from_local.yml
   vars:
     src_path_local: "{{ dh_vm_vmx_file_local }}"
     dest_path_remote: "{{ dh_vm_vmx_path }}"
     vm_guest_ip: "{{ host_machine_hostname }}"
+  when: host_machine_type == "windows"
 
 - name: "Copy new VM vmx file from local to Linux host"
-  when: host_machine_type == "linux"
   include_tasks: ../../common/transfer_file_remote.yml
   vars:
     transfer_file_remote_src: "{{ dh_vm_vmx_file_local }}"
@@ -82,6 +81,7 @@
     transfer_file_remote_server: "{{ host_machine_hostname }}"
     transfer_file_remote_mode: "0777"
     transfer_file_remote_force: "true"
+  when: host_machine_type == "linux"
 
 - name: "Power on VM"
   include_tasks: dh_host_power_vm.yml

@@ -16,12 +16,12 @@
     vm_guest_ip: "{{ host_machine_hostname }}"
 
 - name: "Copy PsExec64.exe tool to Windows host if it doesn't exist"
-  when: not win_check_file_exist_result
   include_tasks: ../../windows/utils/win_copy_file_from_local.yml
   vars:
     src_path_local: "{{ psexec_path_local }}"
     dest_path_remote: "{{ psexec_path_remote }}"
     vm_guest_ip: "{{ host_machine_hostname }}"
+  when: not win_check_file_exist_result
 
 - name: "Get Session ID with cmd command"
   ansible.windows.win_shell: for /f "tokens=2-4" %a in ('query session %username%') do @if "%c"=="Active" echo %b
@@ -57,7 +57,7 @@
   ignore_errors: yes
 
 - name: "Validate execution results and report errors"
-  fail:
+  ansible.builtin.fail:
     msg: |
       The VM power operation failed!
       - Target Host: {{ host_machine_hostname }}
@@ -106,7 +106,7 @@
     dh_vm_exists: true
   when: dh_vm_vmx_path in win_powershell_cmd_output.stdout
 
-- name: "Set fact of VM existence status"
+- name: "Set fact of VM non-existence status"
   ansible.builtin.set_fact:
     dh_vm_exists: false
   when: dh_vm_vmx_path not in win_powershell_cmd_output.stdout

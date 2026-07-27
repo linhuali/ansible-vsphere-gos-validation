@@ -14,7 +14,6 @@
         dh_host_installed: "{{ win_software_is_installed }}"
 
 - name: "Get Workstation installed path"
-  when: dh_host_installed
   block:
     - name: "Get Workstation installed path in Windows host"
       include_tasks: ../../windows/utils/win_get_software_install_path.yml
@@ -24,3 +23,4 @@
     - name: "Set fact of Workstation installed path"
       ansible.builtin.set_fact:
         dh_host_installed_path: "{{ win_software_install_path }}"
+  when: dh_host_installed
