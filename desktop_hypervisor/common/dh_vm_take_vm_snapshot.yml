@@ -27,14 +27,15 @@
         vm_guest_ip: "{{ host_machine_hostname }}"
 
     - name: "Display the VM snapshots"
-      ansible.builtin.debug: var=win_powershell_cmd_output.stdout_lines
+      ansible.builtin.debug:
+        var: win_powershell_cmd_output.stdout_lines | default(win_powershell_cmd_output.stdout)
+      when: enable_debug | default(false) | bool
 
 - name: "Take snapshot for guest on Linux Host"
   when: host_machine_type == "linux"
   block:
     - name: "Taking a snapshot of VM"
-      ansible.builtin.shell: |
-        {{ dh_host_vmrun_path }} -T ws snapshot {{ dh_vm_vmx_path }} {{ take_snapshot_name }}
+      ansible.builtin.command: "{{ dh_host_vmrun_path }} -T ws snapshot {{ dh_vm_vmx_path }} {{ take_snapshot_name }}"
       delegate_to: "{{ host_machine_hostname }}"
       become: true
       become_user: "{{ dh_vm_username }}"
@@ -45,8 +46,7 @@
         - "'Error' in vmrun_result.stderr"
 
     - name: "Get VM snapshot status"
-      ansible.builtin.shell: |
-        {{ dh_host_vmrun_path }} -T ws listSnapshots {{ dh_vm_vmx_path }}
+      ansible.builtin.command: "{{ dh_host_vmrun_path }} -T ws listSnapshots {{ dh_vm_vmx_path }}"
       delegate_to: "{{ host_machine_hostname }}"
       become: true
       become_user: "{{ dh_vm_username }}"
@@ -57,4 +57,6 @@
         - "'Error' in vmrun_result.stderr"
 
     - name: "Display the VM snapshots"
-      ansible.builtin.debug: var=vmrun_result.stdout_lines
+      ansible.builtin.debug:
+        var: vmrun_result.stdout_lines | default(vmrun_result.stdout)
+      when: enable_debug | default(false) | bool
