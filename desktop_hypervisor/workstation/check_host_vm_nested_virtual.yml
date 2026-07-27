@@ -17,9 +17,9 @@
       vars:
         vm_guest_ip: "{{ host_machine_hostname }}"
     - name: "Set fact of host machine is virtual machine info"
-      when: "'VMware' in win_manufacturer"
       ansible.builtin.set_fact:
         dh_host_is_vm: true
+      when: "'VMware' in win_manufacturer"
 
 - name: "Check if nested virtualization is enabled on VM"
   when:

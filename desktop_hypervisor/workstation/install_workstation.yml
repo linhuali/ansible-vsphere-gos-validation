@@ -79,13 +79,13 @@
             - name: "Get if host require nested virtualization"
               include_tasks: check_host_vm_nested_virtual.yml
             - name: "Skip test case"
-              when:
-                - dh_host_is_vm
-                - not dh_host_nest_virtual
               include_tasks: ../../common/skip_test_case.yml
               vars:
                 skip_msg: "Test case '{{ ansible_play_name }}' is blocked because host machine is a virtual machine while VM nested virtualization is not enabled."
                 skip_reason: "Blocked"
+              when:
+                - dh_host_is_vm
+                - not dh_host_nest_virtual
 
         - name: "Un/install Workstation in Windows host"
           when: host_machine_type == "windows"
@@ -97,8 +97,8 @@
               include_tasks: install_ws_windows_host.yml
 
         - name: "Install Workstation in Linux host"
-          when: host_machine_type == "linux"
           include_tasks: install_ws_linux_host.yml
+          when: host_machine_type == "linux"
 
         - name: "Display Desktop Hypervisor installation status"
           ansible.builtin.debug:
