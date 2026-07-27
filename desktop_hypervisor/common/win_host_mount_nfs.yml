@@ -10,13 +10,13 @@
 # enable insecure guest logons in Windows host machine when configured NFS server accepts guest credential.
 #
 - name: "Enable insecure guest logons in Windows host"
-  when: >
-    (iso_nfs_server_username is undefined or not iso_nfs_server_username) or
-    (iso_nfs_server_password is undefined or not iso_nfs_server_password)
   include_tasks: ../../windows/utils/win_execute_cmd.yml
   vars:
     win_powershell_cmd: "reg add 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters' /v 'AllowInsecureGuestAuth' /t REG_DWORD /d 1 /f"
     vm_guest_ip: "{{ host_machine_hostname }}"
+  when: >
+    (iso_nfs_server_username is undefined or not iso_nfs_server_username) or
+    (iso_nfs_server_password is undefined or not iso_nfs_server_password)
 
 - name: "Enable NFS client in Windows host"
   include_tasks: ../../windows/utils/win_install_nfs_client.yml
@@ -39,12 +39,12 @@
 # New-PSDrive -Name X -Root "{{ iso_nfs_server_path }}" -Persist -PSProvider FileSystem -Scope Global -Credential $cred
 # to below command
 - name: "Set fact of the command to mount NFS datastore with credentials"
-  when:
-    - iso_nfs_server_username is defined and iso_nfs_server_username
-    - iso_nfs_server_password is defined and iso_nfs_server_password
   ansible.builtin.set_fact:
     win_host_mount_cmd: >-
       mount "{{ iso_nfs_server_path }}" X: -u:{{ iso_nfs_server_username }} -p:{{ iso_nfs_server_password }}
+  when:
+    - iso_nfs_server_username is defined and iso_nfs_server_username
+    - iso_nfs_server_password is defined and iso_nfs_server_password
 
 - name: "Mount NFS datastore in Windows host"
   ansible.windows.win_command: "{{ win_host_mount_cmd }}"
