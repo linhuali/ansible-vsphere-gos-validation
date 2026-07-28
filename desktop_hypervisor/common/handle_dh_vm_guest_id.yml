@@ -44,6 +44,7 @@
     - name: "Handle Photon OS situation"
       ansible.builtin.set_fact:
         dh_vm_guest_id: "vmware-photon-64"
+      when: "'photon' in dh_vm_guest_id | lower"
 
 - name: "Display the guest ID"
   ansible.builtin.debug:
