@@ -2,15 +2,15 @@
 # SPDX-License-Identifier: BSD-2-Clause
 ---
 - name: "Get the guestID"
-  when: dh_guest_id is undefined or not dh_guest_id
   include_tasks: ../../common/dh_get_guestid.yml
+  when: dh_guest_id is undefined or not dh_guest_id
 
 - name: "Initialize the file paths"
   ansible.builtin.set_fact:
     vmtools_cmd_path: "C:\\Program Files\\VMware\\VMware Tools\\VMwareToolboxCmd.exe"
     vmtools_log_path: |-
-      {%- if dh_guest_id is match('winNet.*') -%}C:\\vmtools.txt
-      {%- else  -%}{{ dh_host_download_path }}vmtools.txt
+      {%- if dh_guest_id is match('winNet.*') -%}C:\vmtools.txt
+      {%- else  -%}{{ dh_host_download_path }}\vmtools.txt
       {%- endif -%}
 
 #- name: "Get vmtools info of guest"
@@ -45,6 +45,7 @@
     - vmtools_version_build.stdout is defined
     - vmtools_version_build.stdout | length > 5
     - vmtools_version_build.stdout is search('[0-9]+\.[0-9]+')
+  ignore_errors: true
   delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Print VMTools version and build"
