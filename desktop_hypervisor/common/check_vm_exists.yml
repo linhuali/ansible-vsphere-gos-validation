@@ -25,14 +25,14 @@
         vm_guest_ip: "{{ host_machine_hostname }}"
 
     - name: "Set fact of running VM exists"
+      ansible.builtin.set_fact:
+        dh_vm_check_exist: true
+        dh_vm_vmx_check_exist: true
       when:
         - win_powershell_cmd_output.rc is defined
         - win_powershell_cmd_output.rc == 0
         - win_powershell_cmd_output.stdout is defined
         - dh_vm_vmx_path in win_powershell_cmd_output.stdout
-      ansible.builtin.set_fact:
-        dh_vm_check_exist: true
-        dh_vm_vmx_check_exist: true
 
     - name: "Check VM vmx file exists"
       when: not dh_vm_check_exist

@@ -8,26 +8,26 @@
 # https://docs.vmware.com/en/VMware-Fusion/13/com.vmware.fusion.using.doc/GUID-FF306A59-080E-497E-857D-F45125927FB3.html
 #
 - name: "Set fact of VNC port"
-  when: dh_vm_vnc_port is defined and dh_vm_vnc_port
   ansible.builtin.set_fact:
     display_port: "{{ dh_vm_vnc_port|int - 5900 }}"
+  when: dh_vm_vnc_port is defined and dh_vm_vnc_port
 
 - name: "Set fact of VNC port"
-  when: dh_vm_vnc_port is not defined or not dh_vm_vnc_port
   ansible.builtin.set_fact:
     display_port: 0
+  when: dh_vm_vnc_port is not defined or not dh_vm_vnc_port
 
 - name: "Set fact of guest user"
-  when: new_user is defined and new_user
   ansible.builtin.set_fact:
     autologin_user: "{{ new_user }}"
+  when: new_user is defined and new_user
 
 - name: "Set fact of guest user"
+  ansible.builtin.set_fact:
+    autologin_user: "{{ dh_vm_username }}"
   when: >
     dh_vm_username != "root" or
     new_user is not defined
-  ansible.builtin.set_fact:
-    autologin_user: "{{ dh_vm_username }}"
 
 - name: "Open www.vmware.com with firefox"
   ansible.builtin.shell: |

@@ -17,16 +17,16 @@
             require_dh_vm_exists: "{{ true if (dh_new_vm is undefined or not dh_new_vm | bool) else false }}"
 
         - name: "Make sure Guest VM is exists"
-          when: dh_new_vm is defined and dh_new_vm | bool
           ansible.builtin.assert:
             that:
               - dh_vm_exists
               - dh_vm_vmx_exists
             fail_msg: "VM with path '{{ dh_vm_vmx_path }}' is not exists, please deploy vm first."
+          when: dh_new_vm is defined and dh_new_vm | bool
 
         - name: "Run check browser test in Guest"
-          when: host_machine_type == "linux"
           include_tasks: browser_test.yml
+          when: host_machine_type == "linux"
       rescue:
         - name: "Test case failure"
           include_tasks: ../../common/dh_test_rescue.yml

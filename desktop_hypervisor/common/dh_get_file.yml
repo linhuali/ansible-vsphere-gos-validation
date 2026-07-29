@@ -47,5 +47,5 @@
         - fetch_file_local_path != ""
 
 - name: "Display the fetch file result"
-  when: file_local_path != ""
   ansible.builtin.debug: var=file_local_path
+  when: file_local_path != ""
