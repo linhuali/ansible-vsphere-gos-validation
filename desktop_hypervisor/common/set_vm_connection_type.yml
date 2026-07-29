@@ -16,8 +16,9 @@
     dh_vm_connection_type: "bridged"
 
 - name: "Get VM existence status"
-  when: dh_vm_check_exist
   include_tasks: dh_host_check_vm_exists.yml
+  when: dh_vm_check_exist
+
 - name: "Stop Guest VM"
   include_tasks: dh_host_power_vm.yml
   vars:
@@ -33,6 +34,7 @@
         line_content: "ethernet0.connectionType = \"{{ dh_vm_connection_type }}\""
         reg_exp: "ethernet0.connectionType.*"
         vm_guest_ip: localhost
+
     - name: "Update vmx file with serial port as false"
       include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
       vars:
@@ -40,6 +42,7 @@
         line_content: "serial0.present = \"FALSE\""
         reg_exp: "serial0.present.*"
         vm_guest_ip: localhost
+
     - name: "Update vm file with cdrom in Windows Host"
       when: host_machine_type == "windows"
       block:
@@ -50,6 +53,7 @@
             line_content: "sata0:0.fileName = \"{{ dh_vm_tools_path }}\""
             reg_exp: "sata0:0.fileName.*"
             vm_guest_ip: localhost
+
         - name: "Update vmx file with sata0:1 as false"
           include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
           vars:
@@ -57,6 +61,7 @@
             line_content: "sata0:1.present = \"FALSE\""
             reg_exp: "sata0:1.present.*"
             vm_guest_ip: localhost
+            
         - name: "Update vmx file with sata0:3 as false"
           include_tasks: ../../linux/utils/replace_or_add_line_in_file.yml
           vars:
