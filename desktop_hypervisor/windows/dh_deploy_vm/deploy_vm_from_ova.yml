@@ -9,10 +9,9 @@
   vars:
     win_check_file_exist_file: "{{ dh_vm_vmx_path }}"
     vm_guest_ip: "{{ host_machine_hostname }}"
-  register: dh_guest_vm_extracted
 
 - name: "Open Guest vm on {{ host_machine_hostname }}"
-  when: dh_guest_vm_extracted
+  when: win_check_file_exist_result
   block:
     - name: "Update the vmx file extracted from ovf"
       include_tasks: ../../common/set_vm_config.yml
