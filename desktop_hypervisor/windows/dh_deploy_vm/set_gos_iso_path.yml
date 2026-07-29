@@ -14,20 +14,27 @@
       ansible.builtin.set_fact:
         dh_guest_iso_full_url: "{{ iso_http_server_path }}{{ dh_guest_iso_path }}"
         dh_guest_iso_file_name: "{{ dh_guest_iso_path | ansible.builtin.basename }}"
+        dh_guest_iso_host_path: "{{ dh_host_download_path }}\\{{ dh_guest_iso_path | ansible.builtin.basename }}"
     - name: "Display ISO file info"
       ansible.builtin.debug:
         msg:
           - "ISO URL: {{ dh_guest_iso_full_url }}"
           - "ISO file name: {{ dh_guest_iso_file_name }}"
-    - name: "win_get_url ISO file to Host downloads folder"
+    - name: "Check guest OS image file status in Windows host"
+      include_tasks: ../../../windows/utils/win_check_file_exist.yml
+      vars:
+        win_check_file_exist_file: "{{ dh_guest_iso_host_path }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+    - name: "win_get_url ISO file to Host downloads folder when it doesn't exist"
+      when: not win_check_file_exist_result
       ansible.windows.win_get_url:
         url: "{{ dh_guest_iso_full_url }}"
-        dest: "{{ dh_host_download_path }}{{ dh_guest_iso_file_name }}"
+        dest: "{{ dh_guest_iso_host_path }}"
         validate_certs: false
       delegate_to: "{{ host_machine_hostname }}"
     - name: "Set fact of ISO file path"
       ansible.builtin.set_fact:
-        dh_guest_iso_path: "{{ dh_host_download_path }}{{ dh_guest_iso_file_name }}"
+        dh_guest_iso_path: "{{ dh_guest_iso_host_path }}"
 
 # iso_nfs_server_path is configured
 - name: "Set guest OS image file path in mounted NFS directory"
@@ -59,11 +66,11 @@
         win_powershell_cmd: "(Get-Volume | where-object {$_.DriveType -eq 'CD-ROM' -and $_.OperationalStatus -eq 'OK'}).DriveLetter"
         vm_guest_ip: "{{ host_machine_hostname }}"
     - name: "Set fact of guest OS image file path"
+      ansible.builtin.set_fact:
+        dh_guest_iso_path: "{{ win_powershell_cmd_output.stdout_lines[0] }}:"
       when:
         - win_powershell_cmd_output.stdout_lines is defined
         - win_powershell_cmd_output.stdout_lines | length > 0
-      ansible.builtin.set_fact:
-        dh_guest_iso_path: "{{ win_powershell_cmd_output.stdout_lines[0] }}:"
 
 - name: "Check guest OS image file status"
   when: not dh_vm_cdrom_use_physical

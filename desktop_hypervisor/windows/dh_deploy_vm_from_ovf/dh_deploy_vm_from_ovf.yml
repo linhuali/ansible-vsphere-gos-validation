@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 ---
 # Description:
-#   This test case is used for installing Workstation in Linux or Windows machine.
+#   This test case is used for deploying new Windows VM from OVA/OVF template.
 #
 - name: dh_deploy_vm_from_ovf
   hosts: localhost
@@ -43,7 +43,7 @@
           vars:
             create_dh_test_folder: true
 
-        - name: "Extract OVF and open VM in Linux host"
+        - name: "Extract OVF and open VM in Windows host"
           when:
             - dh_guest_ovf_url is defined
             - dh_guest_ovf_url is match('.*.ov(f|a)')

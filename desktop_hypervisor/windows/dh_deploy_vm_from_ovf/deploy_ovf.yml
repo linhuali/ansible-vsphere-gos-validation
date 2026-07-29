@@ -1,15 +1,14 @@
 # Copyright 2023-2026 VMware, Inc.
 # SPDX-License-Identifier: BSD-2-Clause
 ---
-#- name: "Check the vmx file in Windows host"
-#  include_tasks: ../../../windows/utils/win_check_file_exist.yml
-#  vars:
-#    win_check_file_exist_file: "{{ dh_vm_vmx_path }}"
-#    vm_guest_ip: "{{ host_machine_hostname }}"
-#  register: dh_guest_vm_extracted
+- name: "Check the vmx file in Windows host"
+  include_tasks: ../../../windows/utils/win_check_file_exist.yml
+  vars:
+    win_check_file_exist_file: "{{ dh_vm_vmx_path }}"
+    vm_guest_ip: "{{ host_machine_hostname }}"
 
 - name: "Open Guest vm on {{ host_machine_hostname }}"
-  when: dh_guest_vm_extracted
+  when: win_check_file_exist_result
   block:
     - name: "Update the vmx file extracted from ovf"
       include_tasks: ../../common/set_vm_config.yml
@@ -47,6 +46,6 @@
       include_tasks: ../../../windows/utils/win_execute_cmd.yml
       vars:
         win_powershell_cmd: >-
-          if ($(Test-Path "{{ dh_vm_path }}\\{{ dh_vm_new_name }}")) {Remove-Item "{{ dh_vm_path }}\{{ dh_vm_new_name }}" -Recurse -Force}
+          if ($(Test-Path "{{ dh_vm_path }}\\{{ dh_vm_new_name }}")) {Remove-Item "{{ dh_vm_path }}\\{{ dh_vm_new_name }}" -Recurse -Force}
         vm_guest_ip: "{{ host_machine_hostname }}"
       when: dh_cleanup_ovf is defined and dh_cleanup_ovf
