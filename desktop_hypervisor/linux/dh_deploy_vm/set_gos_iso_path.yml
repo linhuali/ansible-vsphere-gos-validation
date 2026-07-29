@@ -61,7 +61,6 @@
         guest_file_path: "{{ dh_guest_iso_local_path }}"
         vm_guest_ip: localhost
     - name: "Download ISO file to local folder"
-      when: not guest_file_exists
       ansible.builtin.get_url:
         url: "{{ dh_guest_iso_full_url }}"
         dest: "{{ dh_guest_iso_local_path }}"
@@ -71,6 +70,7 @@
         timeout: 60
       async: 3600
       poll: 30
+      when: not guest_file_exists
     - name: "Set fact of ISO file path"
       ansible.builtin.set_fact:
         dh_guest_iso_path: "{{ dh_guest_iso_host_path }}"

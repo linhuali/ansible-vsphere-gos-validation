@@ -6,9 +6,9 @@
     dh_guest_vm_extracted: false
 
 - name: "Initialize the facts of Guest OVA/OVF URL"
-  when: iso_http_server_path is defined and iso_http_server_path
   ansible.builtin.set_fact:
     dh_guest_image_path: "{{ iso_http_server_path }}{{ dh_guest_iso_path }}"
+  when: iso_http_server_path is defined and iso_http_server_path
 
 - name: "Extract OVA/OVF to VMX using ovftool"
   ansible.builtin.shell: |
@@ -32,7 +32,7 @@
   delegate_to: "{{ host_machine_hostname }}"
 
 - name: "Set the result of ovftool extract"
-  when: extract_result.stderr is not defined or not extract_result.stderr
   ansible.builtin.set_fact:
     dh_guest_vm_extracted: true
     #dh_guest_vm_path: "{{ extract_ovf_result.stdout_lines | select ('match', 'Writing VMX file:.*.vmx', ignorecase=True) | regex_findall('/.*.vmx') | first }}"
+  when: extract_result.stderr is not defined or not extract_result.stderr

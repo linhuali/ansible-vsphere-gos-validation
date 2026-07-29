@@ -64,6 +64,7 @@
     - guest_os_ansible_distribution in ['SLES', 'SLED', 'RedHat', 'Rocky', 'AlmaLinux', 'openSUSE Leap']
 
 - name: "Reset guest OS in desktop hypervisor"
+  when: guest_os_ansible_distribution not in ['VMware Photon OS', 'CentOS', 'RedHat', 'OracleLinux', 'Fedora', 'AlmaLinux', 'Rocky']
   block:
     - name: "Reset guest OS in desktop hypervisor"
       include_tasks: ../../common/dh_host_power_vm.yml
@@ -74,7 +75,6 @@
       include_tasks: ../../../common/vm_wait_connection.yml
       vars:
         vm_wait_connection_timeout: 60
-  when: guest_os_ansible_distribution not in ['VMware Photon OS', 'CentOS', 'RedHat', 'OracleLinux', 'Fedora', 'AlmaLinux', 'Rocky']
 
 - name: "Get VMware Tools version and build"
   include_tasks: ../../../linux/utils/get_guest_ovt_version_build.yml
