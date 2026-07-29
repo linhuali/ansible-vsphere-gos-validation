@@ -237,15 +237,15 @@
     #- name: "Install Ubuntu OS"
     #  include_tasks: ../../../linux/deploy_vm/ubuntu/ubuntu_install_os.yml
     - name: "Wait autoinstall start message appear in serial port output file"
-      when: >
-        dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
-        dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
       include_tasks: ../../common/dh_host_get_log.yml
       vars:
         vm_wait_log_name: "{{ vm_serial_port_file_path }}"
         vm_wait_log_msg: "{{ autoinstall_start_msg }}"
         vm_wait_log_delay: 30
         vm_wait_log_retries: 120
+      when: >
+        dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
+        dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
 
     - name: "Wait autoinstall complete message appear in serial port output file"
       include_tasks: ../../common/dh_host_get_log.yml
@@ -280,22 +280,22 @@
         dh_vm_exists: "{{ dh_vm_check_exist }}"
 
     - name: "Reset the vm config for ubuntu"
+      include_tasks: ../utils/reset_vm_config.yml
       when: >
         dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
         dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
-      include_tasks: ../utils/reset_vm_config.yml
 
     - name: "Power on VM"
-      when: not dh_vm_exists
       include_tasks: ../../common/dh_host_power_vm.yml
       vars:
         vm_power_option: "start"
+      when: not dh_vm_exists
     - name: "Reset guest OS"
-      when: dh_vm_exists
       include_tasks: ../../common/dh_host_power_vm.yml
       vars:
         vm_power_option: "reset"
         vmrun_extra_option: "hard"
+      when: dh_vm_exists
 
     - name: "Wait 60s for OS powered on"
       ansible.builtin.pause:
