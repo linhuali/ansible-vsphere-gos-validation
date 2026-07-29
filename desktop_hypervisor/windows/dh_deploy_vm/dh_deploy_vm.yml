@@ -13,11 +13,11 @@
     - name: "Test case block"
       block:
         - name: "Reset the dh_vm_deploy_method per dh_guest_iso_path"
+          ansible.builtin.set_fact:
+            dh_vm_deploy_method: "{{ dh_guest_iso_path.split('.')[-1] | lower }}"
           when:
             - dh_guest_iso_path is defined
             - dh_guest_iso_path | lower is match('.*.(iso|ova|ovf)')
-          ansible.builtin.set_fact:
-            dh_vm_deploy_method: "{{ dh_guest_iso_path.split('.')[-1] | lower }}"
 
         - name: "Test setup"
           include_tasks: ../../common/dh_test_setup.yml
@@ -26,13 +26,13 @@
             require_dh_vm_exists: "{{ true if (dh_new_vm is undefined or not dh_new_vm | bool) else false }}"
 
         - name: "Skip test case"
-          when:
-            - dh_new_vm is undefined or not dh_new_vm | bool
-            - dh_vm_exists or dh_vm_vmx_exists
           include_tasks: ../../../common/skip_test_case.yml
           vars:
             skip_msg: "Skip test case due to 'dh_new_vm' is set to '{{ dh_new_vm | default(false) }}' and got VM exists: '{{ dh_vm_exists }}'"
             skip_reason: "Skipped"
+          when:
+            - dh_new_vm is undefined or not dh_new_vm | bool
+            - dh_vm_exists or dh_vm_vmx_exists
 
         - name: "Skip test case when no vdiskmanager"
           when: dh_vm_deploy_method == "iso"
@@ -48,12 +48,12 @@
                 - dh_host_vdisk_manager_exists is undefined or not dh_host_vdisk_manager_exists | bool
 
         - name: "Make sure no VM with same name exists"
-          when: dh_new_vm is defined and dh_new_vm | bool
           ansible.builtin.assert:
             that:
               - not dh_vm_exists
               #- not dh_vm_vmx_exists
             fail_msg: "VM with path '{{ dh_vm_vmx_path }}' exists, please set parameter 'dh_vm_new_name' or 'dh_vm_path' to other values."
+          when: dh_new_vm is defined and dh_new_vm | bool
 
         - name: "Create new folder for VM in Windows host"
           ansible.windows.win_shell: |
@@ -67,12 +67,12 @@
           become_user: "{{ win_execute_cmd_become_user | default('Administrator') }}"
 
         - name: "Deploy VM from ISO"
-          when: (dh_vm_deploy_method is undefined) or (dh_vm_deploy_method == "iso")
           include_tasks: deploy_vm_from_iso.yml
+          when: (dh_vm_deploy_method is undefined) or (dh_vm_deploy_method == "iso")
 
         - name: "Deploy VM from an OVA/OVF template"
-          when: (dh_vm_deploy_method is defined) and (dh_vm_deploy_method == "ova" or dh_vm_deploy_method == "ovf")
           include_tasks: deploy_vm_from_ova.yml
+          when: (dh_vm_deploy_method is defined) and (dh_vm_deploy_method == "ova" or dh_vm_deploy_method == "ovf")
       rescue:
         - name: "Take a VM screenshot after failure"
           include_tasks: ../../common/dh_vm_take_screenshot.yml
