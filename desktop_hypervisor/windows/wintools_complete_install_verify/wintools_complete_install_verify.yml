@@ -35,12 +35,12 @@
             create_dh_test_folder: true
             require_dh_vm_exists: "{{ true if (dh_new_vm is undefined or not dh_new_vm | bool) else false }}"
 
-        - name: "Make sure Guest VM is exists"
+        - name: "Make sure Guest VM exists"
           ansible.builtin.assert:
             that:
               - dh_vm_exists
               - dh_vm_vmx_exists
-            fail_msg: "VM with path '{{ dh_vm_vmx_path }}' is not exists, please deploy vm first."
+            fail_msg: "VM with path '{{ dh_vm_vmx_path }}' does not exist, please deploy vm first."
           when: dh_new_vm is defined and dh_new_vm | bool
 
         - name: "Skip test case"
