@@ -66,4 +66,4 @@
     get_unused_port: "{{ dh_host_port }}"
   when:
     - dh_host_port_open != 'NA'
-    - dh_host_port_open | string | lower == 'false'
+    - not (dh_host_port_open | bool)
