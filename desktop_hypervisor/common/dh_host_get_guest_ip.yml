@@ -7,7 +7,6 @@
 - name: "Initialize VM guest IP address"
   ansible.builtin.set_fact:
     dh_vm_guest_ip: ''
-    vm_guest_ip: ''
 
 - name: "Get the IP from Windows Guest"
   when: host_machine_type == "windows"
@@ -15,7 +14,7 @@
     - name: "Set fact of vmrun command for getting guest IP"
       ansible.builtin.set_fact:
         win_vmrun_get_ip_cmd: >-
-          Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws getGuestIPAddress "{{ dh_vm_vmx_path }}" -wait' -NoNewWindow -Wait -PassThru
+          Start-Process -FilePath "{{ dh_host_vmrun_path }}" -ArgumentList '-T ws getGuestIPAddress "{{ dh_vm_vmx_path }}" -wait' -NoNewWindow
 
     - name: "Pull Guest IP with vmrun"
       ansible.windows.win_shell: "{{ win_vmrun_get_ip_cmd }}"
@@ -69,9 +68,7 @@
 
 - name: "Print VM guest IP address"
   ansible.builtin.debug: var=vm_guest_ip
-  when: vm_guest_ip != ''
 
 - name: "Display VM guest IP address"
   ansible.builtin.debug:
     msg: "Get VM '{{ dh_vm_vmx_path }}' guest IP address: {{ dh_vm_guest_ip }}"
-  when: dh_vm_guest_ip != ''
