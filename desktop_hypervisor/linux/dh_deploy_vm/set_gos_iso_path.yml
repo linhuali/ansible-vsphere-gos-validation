@@ -55,22 +55,38 @@
               - download_iso_result.dest is defined
               - download_iso_result.dest == dh_guest_iso_host_path
             fail_msg: "Downloading ISO file result status code '{{ download_iso_result.status_code | default('') }}' is not 200, or file dest '{{ download_iso_result.dest | default('') }}' is not expected '{{ dh_guest_iso_host_path }}'."
+    - name: "Set fact if OS ISO needs to be rebuilt"
+      ansible.builtin.set_fact:
+        rebuild_os_iso: >-
+          {{ dh_guest_unattend_install_conf is defined and dh_guest_unattend_install_conf and (
+             dh_guest_unattend_install_conf is match('Photon') or
+             dh_guest_unattend_install_conf is match('Debian') or
+             dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Ubiquity') or
+             dh_guest_unattend_install_conf is match('FreeBSD') or
+             dh_guest_unattend_install_conf is match('Pardus') or
+             dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
+             dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
+          ) }}
     - name: "Check guest OS image file status in local"
       include_tasks: ../../../linux/utils/get_file_stat_info.yml
       vars:
         guest_file_path: "{{ dh_guest_iso_local_path }}"
         vm_guest_ip: localhost
+      when: rebuild_os_iso | bool
     - name: "Download ISO file to local folder"
       ansible.builtin.get_url:
         url: "{{ dh_guest_iso_full_url }}"
         dest: "{{ dh_guest_iso_local_path }}"
-        tmp_dest: "{{ dh_host_download_path }}/"
+        tmp_dest: "{{ local_cache }}/"
         mode: "0777"
         validate_certs: false
         timeout: 60
       async: 3600
       poll: 30
-      when: not guest_file_exists
+      when:
+        - rebuild_os_iso | bool
+        - not guest_file_exists | default(false)
+      delegate_to: localhost
     - name: "Set fact of ISO file path"
       ansible.builtin.set_fact:
         dh_guest_iso_path: "{{ dh_guest_iso_host_path }}"
