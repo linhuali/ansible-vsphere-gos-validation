@@ -117,15 +117,29 @@
 
             - name: "Get VM guest info including detailed data"
               include_tasks: ../../common/dh_get_guest_info.yml
+
+            - name: "Get VMware Tools install log file"
+              include_tasks: ../../../windows/wintools_complete_install_verify/get_vmtools_install_log.yml
+              vars:
+                vm_guest_ip: "{{ dh_vm_guest_ip }}"
+                vm_username: "{{ host_machine_username }}"
+              when: get_vmtools_install_log is defined and get_vmtools_install_log
+
+            - name: "Execute ipconfig /release in guest VM"
+              ansible.windows.win_command: >-
+                "{{ dh_host_vmrun_path }}" -T ws 
+                -gu "{{ dh_vm_username }}" -gp "{{ dh_vm_password }}" 
+                runProgramInGuest "{{ dh_vm_vmx_path }}" ipconfig.exe /release
+              delegate_to: "{{ host_machine_hostname }}"
+              ignore_errors: yes
+
+            - name: "Stop VM"
+              include_tasks: ../../common/dh_host_power_vm.yml
+              vars:
+                vm_power_option: "stop"
+                vmrun_extra_option: "soft"
       rescue:
         - name: "Test case failure"
           include_tasks: ../../common/dh_test_rescue.yml
           vars:
             exit_testing_when_fail: true
-      always:
-        - name: "Get VMware Tools install log file"
-          include_tasks: ../../../windows/wintools_complete_install_verify/get_vmtools_install_log.yml
-          vars:
-            vm_guest_ip: "{{ dh_vm_guest_ip }}"
-            vm_username: "{{ host_machine_username }}"
-          when: get_vmtools_install_log is defined and get_vmtools_install_log
