@@ -262,7 +262,7 @@
         vm_wait_log_name: "{{ vm_serial_port_file_path }}"
         vm_wait_log_msg: "{{ autoinstall_complete_msg }}"
         vm_wait_log_delay: 30
-        vm_wait_log_retries: 300
+        vm_wait_log_retries: 400
 
     - name: "Take a VM screenshot when autoinstall complete message is received"
       include_tasks: ../../common/dh_vm_take_screenshot.yml
