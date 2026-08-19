@@ -118,11 +118,19 @@
         - name: "Get VM guest info including detailed data"
           include_tasks: ../../common/dh_get_guest_info.yml
 
+        - name: "Release IP directly in Guest VM using Bridged network"
+          include_tasks: ../utils/release_vm_ip.yml
+          when:
+            - dh_vm_connection_type is defined
+            - dh_vm_connection_type == 'bridged'
+            - dh_vm_guest_ip is defined
+            - dh_vm_guest_ip | length > 0
+
         - name: "Shutdown guest OS in desktop hypervisor"
           include_tasks: ../../common/dh_host_power_vm.yml
           vars:
             vm_power_option: "stop"
-            vmrun_extra_option: "hard"
+            vmrun_extra_option: "soft"
       rescue:
         - name: "Test case failure"
           include_tasks: ../../common/dh_test_rescue.yml

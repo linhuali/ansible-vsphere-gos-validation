@@ -1,0 +1,60 @@
+# Copyright 2026 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# linux/utils/release_vm_ip.yml
+
+# Step 0: Define temporary script and log file paths in facts
+- name: "Set temporary file path facts"
+  ansible.builtin.set_fact:
+    guest_ip_script_path: "/tmp/release_ip.sh"
+    guest_ip_log_path: "/tmp/release_ip.log"
+
+# Step 1: Copy release_ip.sh from Jenkins Slave to the Host Machine
+- name: "Copy release_ip.sh from Jenkins Slave to Host Machine"
+  ansible.builtin.copy:
+    src: "scripts/release_ip.sh"
+    dest: "{{ guest_ip_script_path }}"
+    mode: '0755'
+  delegate_to: "{{ host_machine_hostname }}"
+  register: host_copy_result
+
+# Step 2: Push release_ip.sh from Host Machine to Guest VM via vmrun
+- name: "Copy release_ip.sh from Host Machine into Guest VM"
+  ansible.builtin.shell: |
+    vmrun -T ws -gu "{{ dh_vm_username }}" -gp "{{ dh_vm_password }}" \
+    copyFileFromHostToGuest "{{ dh_vm_vmx_path }}" "{{ guest_ip_script_path }}" "{{ guest_ip_script_path }}"
+  delegate_to: "{{ host_machine_hostname }}"
+  register: guest_copy_result
+  when: host_copy_result is success
+
+# Step 3: Execute release_ip.sh in Guest VM and redirect output to the log file
+- name: "Execute release_ip.sh in Guest VM"
+  ansible.builtin.shell: |
+    vmrun -T ws -gu "{{ dh_vm_username }}" -gp "{{ dh_vm_password }}" \
+    runProgramInGuest "{{ dh_vm_vmx_path }}" /bin/sh -c "{{ guest_ip_script_path }} > {{ guest_ip_log_path }} 2>&1"
+  delegate_to: "{{ host_machine_hostname }}"
+  register: guest_exec_result
+  when: guest_copy_result is success
+
+# Step 4: Read the execution log from Guest VM via cat
+- name: "Read release_ip.log from Guest VM"
+  ansible.builtin.shell: |
+    vmrun -T ws -gu "{{ dh_vm_username }}" -gp "{{ dh_vm_password }}" \
+    runProgramInGuest "{{ dh_vm_vmx_path }}" /bin/cat "{{ guest_ip_log_path }}"
+  delegate_to: "{{ host_machine_hostname }}"
+  register: release_ip_output
+  when: guest_exec_result is success
+
+# Step 5: Fail the task if the execution log is empty
+- name: "Validate IP release output"
+  ansible.builtin.fail:
+    msg: "IP release script failed or produced no output in Guest VM!"
+  when: >
+    release_ip_output is not defined or
+    release_ip_output.stdout_lines is not defined or
+    release_ip_output.stdout_lines | length == 0
+
+# Step 6: Print Guest execution logs in Jenkins console
+- name: "Display IP release logs"
+  ansible.builtin.debug:
+    var: release_ip_output.stdout_lines
