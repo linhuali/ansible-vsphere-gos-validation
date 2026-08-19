@@ -60,7 +60,7 @@
     - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Subiquity')
 - name: "Set fact of Autounattend ISO file name"
   ansible.builtin.set_fact:
-    unattend_install_iso: "seed.iso"
+    unattend_install_iso: "seed-{{ current_test_timestamp }}.iso"
   when: >
     dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
     dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
@@ -85,6 +85,17 @@
         os_install_iso_list_len: 1
       when: dh_guest_unattend_install_conf is defined and dh_guest_unattend_install_conf
 
+    - name: "Update unattend iso path if OS ISO is rebuilt"
+      ansible.builtin.set_fact:
+        dh_vm_unattend_iso_path: "{{ dh_vm_path }}/{{ new_os_installation_iso }}"
+        unattend_install_iso: "{{ new_os_installation_iso }}"
+      when:
+        - new_os_installation_iso is defined
+        - new_os_installation_iso | length > 0
+        - dh_guest_unattend_install_conf is defined and dh_guest_unattend_install_conf
+        - dh_guest_unattend_install_conf is not match('Ubuntu/Server/')
+        - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Subiquity')
+
     - name: "Copy unattend install iso to Linux host and remove it from datastore"
       when: is_vsphere_env
       block:
@@ -97,12 +108,12 @@
             - unattend_installer == "Ubuntu-Subiquity"
         - name: "Check if source file exists"
           ansible.builtin.stat:
-            path: "{{ unattend_iso_cache }}/{{ unattend_install_iso }}"
+            path: "{{ unattend_iso_cache }}/{{ unattend_install_iso | basename }}"
           register: src_file_stat
         - name: "Copy Autounattend install ISO to Linux host"
           include_tasks: ../../../common/transfer_file_remote.yml
           vars:
-            transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ unattend_install_iso }}"
+            transfer_file_remote_src: "{{ unattend_iso_cache }}/{{ unattend_install_iso | basename }}"
             transfer_file_remote_dest: "{{ dh_vm_unattend_iso_path }}"
             transfer_file_remote_server: "{{ host_machine_hostname }}"
             transfer_file_remote_mode: "0777"
