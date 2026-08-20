@@ -34,7 +34,7 @@
 - name: "Set current test case index, name and log folder"
   include_tasks: ../../common/set_current_testcase_facts.yml
   vars:
-    create_test_log_folder: "{{ create_dh_test_folder | default(false) }}"
+    create_test_case_folder: "{{ create_dh_test_folder | default(false) }}"
 
 - name: "Reset the dh_vm_deploy_method per dh_guest_iso_path"
   ansible.builtin.set_fact:
