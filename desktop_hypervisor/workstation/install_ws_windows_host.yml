@@ -127,6 +127,8 @@
   failed_when:
     - ws_install_result.rc is defined
     - ws_install_result.rc not in [0, 3010, 1614, 1641]
+  async: 1800
+  poll: 30
 - name: "Display Workstation silent install result"
   debug: var=ws_install_result
 
