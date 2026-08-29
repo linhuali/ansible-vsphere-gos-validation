@@ -66,6 +66,13 @@
     - get_ip_status.stdout_lines | length > 0
     - "'error' not in (get_ip_status.stdout_lines[0] | lower)"
 
+- name: "Check if guest IP is retrieved successfully"
+  ansible.builtin.assert:
+    that:
+      - dh_vm_guest_ip is defined
+      - dh_vm_guest_ip | length > 0
+    fail_msg: "Failed to get VM '{{ dh_vm_vmx_path }}' guest IP address."
+
 - name: "Print VM guest IP address"
   ansible.builtin.debug: var=vm_guest_ip
 
