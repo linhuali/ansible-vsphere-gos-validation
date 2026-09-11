@@ -16,6 +16,15 @@
 - name: "Display open-vm-tools related packages which are installed in guest OS"
   ansible.builtin.debug: var=installed_ovt_packages
 
+- name: "Fix interrupted dpkg state before uninstallation"
+  ansible.builtin.command: dpkg --configure -a
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  delegate_to: "{{ vm_guest_ip }}"
+  changed_when: false
+  failed_when: false
+  when: guest_os_ansible_distribution == 'Debian'
+
 - name: "Uninstall packages {{ ovt_packages }}"
   ansible.builtin.command: "{{ package_uninstall_cmd }} {{ ' '.join(installed_ovt_packages) }}"
   register: ovt_uninstall_result
