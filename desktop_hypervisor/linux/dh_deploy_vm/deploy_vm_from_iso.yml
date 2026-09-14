@@ -288,7 +288,8 @@
       include_tasks: ../../common/dh_host_check_vm_exists.yml
     - name: "Set fact of VM existence status"
       ansible.builtin.set_fact:
-        dh_vm_exists: "{{ dh_vm_check_exist }}"
+        #dh_vm_exists: "{{ dh_vm_check_exist }}"
+        dh_vm_running_after_autoinstall: "{{ dh_vm_check_exist }}"
 
     - name: "Reset the vm config for ubuntu"
       include_tasks: ../utils/reset_vm_config.yml
@@ -296,17 +297,31 @@
         dh_guest_unattend_install_conf is match('Ubuntu/Server/') or
         dh_guest_unattend_install_conf is match('Ubuntu/Desktop/Subiquity')
 
-    - name: "Power on VM"
-      include_tasks: ../../common/dh_host_power_vm.yml
-      vars:
-        vm_power_option: "start"
-      when: not dh_vm_exists
-    - name: "Reset guest OS"
-      include_tasks: ../../common/dh_host_power_vm.yml
-      vars:
-        vm_power_option: "reset"
-        vmrun_extra_option: "hard"
-      when: dh_vm_exists
+    - name: "Remove guest OS ISO file on Linux host"
+      ansible.builtin.file:
+        path: "{{ dh_guest_iso_host_path }}"
+        state: absent
+      delegate_to: "{{ host_machine_hostname }}"
+      when:
+        - dh_guest_iso_host_path is defined
+        - dh_guest_iso_host_path
+
+    - name: "Power on VM or reset guest OS for non-ubuntu"
+      when:
+        - dh_guest_unattend_install_conf is not match('Ubuntu/Server/')
+        - dh_guest_unattend_install_conf is not match('Ubuntu/Desktop/Subiquity')
+      block:
+        - name: "Power on VM"
+          include_tasks: ../../common/dh_host_power_vm.yml
+          vars:
+            vm_power_option: "start"
+          when: not dh_vm_running_after_autoinstall
+        - name: "Reset guest OS"
+          include_tasks: ../../common/dh_host_power_vm.yml
+          vars:
+            vm_power_option: "reset"
+            vmrun_extra_option: "hard"
+          when: dh_vm_running_after_autoinstall
 
     - name: "Wait 60s for OS powered on"
       ansible.builtin.pause:
