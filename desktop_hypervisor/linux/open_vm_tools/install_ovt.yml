@@ -55,7 +55,17 @@
       - ovt_install_result.stdout
       - ovt_install_result.rc is defined
       - ovt_install_result.rc | int == 0
-    fail_msg: "Failed to install open-vm-tools by executing command: {{ ' '.join(ovt_install_result.cmd) }}."
+    fail_msg: |
+      Failed to install open-vm-tools.
+      Command: {{ ' '.join(ovt_install_result.cmd | default([])) }}
+      Details:
+      {% if ovt_install_result.stderr_lines is defined and ovt_install_result.stderr_lines %}
+      {% for line in ovt_install_result.stderr_lines %}
+      {{ line }}
+      {% endfor %}
+      {% else %}
+      {{ ovt_install_result.msg | default('No details available') }}
+      {% endif %}
 
 - name: "Eject CDROM device from guest OS"
   include_tasks: ../../../linux/utils/eject_cdrom_in_guest.yml
