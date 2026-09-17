@@ -305,6 +305,7 @@
       when:
         - dh_guest_iso_host_path is defined
         - dh_guest_iso_host_path
+        - dh_guest_unattend_install_conf is not match('SLE/16.1/')
 
     - name: "Power on VM or reset guest OS for non-ubuntu"
       when:
