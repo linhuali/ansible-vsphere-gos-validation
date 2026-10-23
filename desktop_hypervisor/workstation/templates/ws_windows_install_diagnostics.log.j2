@@ -1,0 +1,52 @@
+Collected at (UTC): {{ ws_windows_log_directories.result.collected_at }}
+Installation started at (UTC): {{ (ws_windows_install_started | default({})).get('stdout', '') | trim }}
+Installer exit code: {{ (ws_install_result | default({})).get('rc', 'unavailable') }}
+Connection user: {{ ws_windows_log_directories.result.user }}
+Keyword matches are diagnostic hints, not an installation failure verdict.
+vminst/vmmsi logs may also belong to VMware Tools; check their product context.
+
+===== Log search directories =====
+{% for root in ws_windows_log_directories.result.temp_roots %}
+{{ root }}
+{% endfor %}
+{{ ws_windows_log_directories.result.program_data }}
+
+===== Installer log search result =====
+Matching logs updated since installation start: {{ ws_windows_installer_logs.result.logs | length }}
+{% if ws_windows_installer_logs.result.logs | length == 0 %}
+No matching installer logs found; see searched directories above.
+{% endif %}
+{% for copy in ws_windows_log_copies.results %}
+{{ copy.ws_installer_log | combine(copy.result) | to_nice_json }}
+{% endfor %}
+
+===== Windows driver installation log copy =====
+{{ ws_windows_setup_log_copy.msg | default('Copied setupapi.dev.log') }}
+{% for match in ws_windows_log_matches.results %}
+
+===== Keyword matches: {{ match.ws_log_copy.result.Source }} =====
+{% for line in match.output | default([]) %}
+{{ line }}
+{% endfor %}
+Errors: {{ match.error | default([]) | to_nice_json }}
+{% endfor %}
+{% for check in [
+    {'title': 'Windows driver installation log', 'data': ws_windows_setup_log_matches},
+    {'title': 'vmx86 service configuration and state', 'data': ws_windows_vmx86_service},
+    {'title': 'vmx86 driver signature', 'data': ws_windows_vmx86_signature},
+    {'title': 'Device Guard', 'data': ws_windows_device_guard}] %}
+
+===== {{ check.title }} =====
+{% for line in check.data.output | default([]) %}
+{{ line }}
+{% endfor %}
+Errors: {{ check.data.error | default([]) | to_nice_json }}
+{% endfor %}
+{% for event in ws_windows_event_logs.results %}
+
+===== Event log: {{ event.ws_event_log.channel }} =====
+{% for line in event.output | default([]) %}
+{{ line }}
+{% endfor %}
+Errors: {{ event.error | default([]) | to_nice_json }}
+{% endfor %}
