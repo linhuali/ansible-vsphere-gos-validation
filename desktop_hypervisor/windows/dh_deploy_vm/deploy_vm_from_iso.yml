@@ -119,9 +119,9 @@
     vm_guest_ip: "{{ host_machine_hostname }}"
 
 - name: "Power on VM to do Windows automatic install"
-  include_tasks: ../../common/dh_host_power_vm.yml
+  include_tasks: ../utils/win_host_start_vm_with_screenshot.yml
   vars:
-    vm_power_option: "start"
+    dh_vm_start_context: "iso"
 
 - name: "Pause 30 seconds before taking VM screenshot"
   ansible.builtin.pause:

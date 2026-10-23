@@ -1,0 +1,74 @@
+# Copyright 2026 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Start a VM on a Windows Workstation host and preserve failure screenshots.
+# Uses the same host/VM variables as dh_host_power_vm.yml.
+# Optional dh_vm_start_context labels the deployment and host screenshot (iso/ovf).
+# Guest VNC capture requires dh_vm_vnc_port configured before startup.
+- name: "Start VM on Windows host and capture the failure state"
+  block:
+    - name: "Power on VM"
+      include_tasks: ../../common/dh_host_power_vm.yml
+      vars:
+        vm_power_option: "start"
+  rescue:
+    - name: "Preserve the original VM start failure"
+      ansible.builtin.set_fact:
+        dh_vm_start_failure:
+          task: "{{ ansible_failed_task.name }}"
+          message: "{{ ansible_failed_result.msg | default('VM start failed') }}"
+          rc: "{{ ansible_failed_result.rc | default('unavailable') }}"
+          stdout: "{{ ansible_failed_result.stdout | default('') }}"
+          stderr: "{{ ansible_failed_result.stderr | default('') }}"
+
+    - name: "Capture Windows host console immediately after VM start failure"
+      when:
+        - is_vsphere_env | default(false) | bool
+        - vm_exists | default(false) | bool
+      block:
+        - name: "Take a Windows host console screenshot"
+          include_tasks: ../../../common/vm_take_screenshot.yml
+          vars:
+            vm_screenshot_local_dir: "{{ current_test_log_folder }}"
+            vm_screenshot_local_name: "host_screenshot_after_{{ dh_vm_start_context | default('vm') }}_start_failure.png"
+      rescue:
+        - name: "Report Windows host screenshot failure"
+          ansible.builtin.debug:
+            msg: "Could not capture the Windows host console: {{ ansible_failed_result.msg | default('unknown error') }}"
+
+    - name: "Try a guest screenshot using the VNC port configured before start"
+      ansible.builtin.command:
+        argv:
+          - vncdo
+          - -v
+          - -s
+          - "{{ host_machine_hostname }}::{{ dh_vm_vnc_port }}"
+          - capture
+          - "{{ current_test_log_folder }}/vm_screenshot_after_start_failure.png"
+      async: 30
+      poll: 5
+      register: dh_vm_start_failure_screenshot
+      ignore_errors: true
+      when: dh_vm_vnc_port is defined and dh_vm_vnc_port
+
+    - name: "Report guest failure screenshot result"
+      ansible.builtin.debug:
+        var: dh_vm_start_failure_screenshot
+
+    - name: "Collect recent logs after VM start failure"
+      block:
+        - name: "Collect and inspect Windows host VM startup logs"
+          include_tasks: win_host_collect_vm_start_logs.yml
+      rescue:
+        - name: "Report startup log collection failure"
+          ansible.builtin.debug:
+            msg: "Could not complete VM startup log collection: {{ ansible_failed_result.msg | default('unknown error') }}"
+
+    - name: "Fail with the original VM start error after screenshot attempts"
+      ansible.builtin.fail:
+        msg: |
+          {{ dh_vm_start_context | default('vm') | upper }} VM start failed in task '{{ dh_vm_start_failure.task }}'.
+          {{ dh_vm_start_failure.message }}
+          Return code: {{ dh_vm_start_failure.rc }}
+          stdout: {{ dh_vm_start_failure.stdout }}
+          stderr: {{ dh_vm_start_failure.stderr }}
