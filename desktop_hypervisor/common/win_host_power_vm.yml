@@ -62,11 +62,15 @@
       The VM power operation failed!
       - Target Host: {{ host_machine_hostname }}
       - Power Option: {{ power_option }}
-      - Return Code: {{ job_result.rc | default('Unknown') }}
-      - Error Details: {{ job_result.stderr | default('No stderr captured') }}
-      - Output: {{ job_result.stdout | default('No stdout captured') }}
+      - Return Code: {{ job_result.rc | default('unavailable') }}
+      - Async Job: {{ async_power_vm.ansible_job_id }}
+      - Finished: {{ job_result.finished | default(false) }}
+      - Status Message: {{ job_result.msg | default('No status message', true) }}
+      - Error Details: {{ job_result.stderr | default('No stderr captured', true) }}
+      - Output: {{ job_result.stdout | default('No stdout captured', true) }}
   when: >
-    job_result.failed or 
+    (job_result.failed | default(false)) or
+    not (job_result.finished | default(false) | bool) or
     (job_result.rc is defined and job_result.rc != 0)
 
 #- name: "vmrun power operation: {{ power_option }} vm"

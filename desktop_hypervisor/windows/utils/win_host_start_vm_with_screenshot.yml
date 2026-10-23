@@ -31,6 +31,30 @@
           vars:
             vm_screenshot_local_dir: "{{ current_test_log_folder }}"
             vm_screenshot_local_name: "host_screenshot_after_{{ dh_vm_start_context | default('vm') }}_start_failure.png"
+
+        - name: "Extract Windows host startup failure screenshot text"
+          when:
+            - tesseract_is_installed | default(false) | bool
+            - vm_screenshot_local_path | default('') | length > 0
+          block:
+            - name: "Read text from the Windows host failure screenshot"
+              include_tasks: ../../../common/extract_text_from_screenshot.yml
+              vars:
+                local_screenshot_path: "{{ vm_screenshot_local_path }}"
+
+            - name: "Log Windows host startup failure screenshot text"
+              ansible.builtin.debug:
+                msg: |
+                  Windows host screenshot text after {{ dh_vm_start_context | default('vm') | upper }} VM start failure (OCR):
+                  Screenshot: {{ vm_screenshot_local_path }}
+                  {{ text_in_screenshot | join('\n') }}
+              tags:
+                - fail_message
+              when: text_in_screenshot | default([]) | length > 0
+          rescue:
+            - name: "Report Windows host failure screenshot text extraction failure"
+              ansible.builtin.debug:
+                msg: "Could not extract Windows host screenshot text: {{ ansible_failed_result.msg | default('unknown error') }}"
       rescue:
         - name: "Report Windows host screenshot failure"
           ansible.builtin.debug:
