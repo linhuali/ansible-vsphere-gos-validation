@@ -1,0 +1,125 @@
+# Copyright 2026 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Collect recent runtime logs after a Windows Workstation VM fails to start.
+# Required: host_machine_hostname, dh_vm_vmx_path, current_test_log_folder.
+# Called after screenshots, before re-raising the saved dh_vm_start_failure.
+- name: "Find the latest VM runtime logs next to the VMX file"
+  ansible.windows.win_powershell:
+    parameters:
+      VmxPath: "{{ dh_vm_vmx_path }}"
+    error_action: stop
+    script: |
+      param([string]$VmxPath)
+      $directory = Split-Path $VmxPath -Parent
+      $logs = @(Get-ChildItem -LiteralPath $directory -File -ErrorAction SilentlyContinue |
+          Where-Object { $_.Name -match '^vmware(?:-\d+)?\.log$' } |
+          Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 3 |
+          ForEach-Object { @{ Source = $_.FullName; Name = $_.Name; Category = 'vm'; UpdatedUtc = $_.LastWriteTimeUtc.ToString('o') } })
+      $Ansible.Result = @{ logs = $logs; directories = @($directory) }
+      $Ansible.Changed = $false
+  delegate_to: "{{ host_machine_hostname }}"
+  register: dh_vm_start_runtime_logs
+
+- name: "Locate Windows host VMware runtime log directories"
+  ansible.windows.win_powershell:
+    error_action: stop
+    script: |
+      $profiles = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\*' |
+          ForEach-Object { [Environment]::ExpandEnvironmentVariables($_.ProfileImagePath) }
+      $roots = @($env:TEMP, (Join-Path $env:SystemRoot 'Temp'),
+          (Join-Path $env:SystemRoot 'System32\config\systemprofile\AppData\Local\Temp')) +
+          @($profiles | ForEach-Object { Join-Path $_ 'AppData\Local\Temp' })
+      $Ansible.Result = @{
+          temp_roots = @($roots | Sort-Object -Unique)
+          program_data = Join-Path $env:ProgramData 'VMware'
+      }
+      $Ansible.Changed = $false
+  delegate_to: "{{ host_machine_hostname }}"
+  register: dh_vm_start_host_log_directories
+
+- name: "Find Windows host VMware runtime log candidates"
+  ansible.windows.win_powershell:
+    parameters:
+      TempRoots: "{{ dh_vm_start_host_log_directories.result.temp_roots }}"
+      ProgramData: "{{ dh_vm_start_host_log_directories.result.program_data }}"
+    error_action: stop
+    script: |
+      param([string[]]$TempRoots, [string]$ProgramData)
+      $candidates = @(
+          foreach ($root in $TempRoots) {
+              if (-not (Test-Path -LiteralPath $root)) { continue }
+              Get-ChildItem -LiteralPath $root -File -ErrorAction SilentlyContinue
+              Get-ChildItem -LiteralPath $root -Directory -Filter 'vmware-*' -ErrorAction SilentlyContinue |
+                  Where-Object { $_.Name -notlike 'vmware-ws-install-diagnostics-*' } |
+                  ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -File -Recurse -Filter '*.log' -ErrorAction SilentlyContinue }
+          }
+          if (Test-Path -LiteralPath $ProgramData) {
+              Get-ChildItem -LiteralPath $ProgramData -File -Recurse -Filter '*.log' -ErrorAction SilentlyContinue
+          }
+      )
+      $logs = @($candidates | Where-Object {
+          $_.Name -match '^(vmware|vmrun|vix|vmx|mks).*\.log$' -and $_.Name -notmatch '(install|setup|modconfig)'
+      } |
+          ForEach-Object { @{ Source = $_.FullName; Name = $_.Name; Category = 'host'; UpdatedUtc = $_.LastWriteTimeUtc.ToString('o') } })
+      $Ansible.Result = @{ logs = $logs }
+      $Ansible.Changed = $false
+  delegate_to: "{{ host_machine_hostname }}"
+  register: dh_vm_start_host_log_candidates
+
+- name: "Select the five most recently updated Windows host runtime logs"
+  ansible.builtin.set_fact:
+    dh_vm_start_host_logs:
+      logs: "{{ (dh_vm_start_host_log_candidates.result.logs | sort(attribute='Source') | unique(attribute='Source') | sort(attribute='UpdatedUtc', reverse=true))[:5] }}"
+      directories: "{{ dh_vm_start_host_log_directories.result.temp_roots + [dh_vm_start_host_log_directories.result.program_data] }}"
+
+- name: "Combine VM and host startup log paths"
+  ansible.builtin.set_fact:
+    dh_vm_start_log_files: "{{ dh_vm_start_runtime_logs.result.logs + dh_vm_start_host_logs.logs }}"
+
+- name: "Create the local startup failure log directory"
+  ansible.builtin.file:
+    path: "{{ current_test_log_folder }}/vm-start-failure-logs"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+
+- name: "Inspect recent startup logs for error keyword context"
+  ansible.windows.win_powershell:
+    parameters:
+      LogPath: "{{ dh_start_log.Source }}"
+    error_action: stop
+    script: |
+      param([string]$LogPath)
+      $Ansible.Changed = $false
+      Get-Content -LiteralPath $LogPath -Tail 2000 |
+          Select-String -Pattern 'error|fail|panic|vmx86|signature|577|denied|cannot|unable|VT-x|AMD-V|Hyper-V|VBS' -Context 3,3 |
+          Select-Object -Last 100 | Out-String -Width 240
+  delegate_to: "{{ host_machine_hostname }}"
+  loop: "{{ dh_vm_start_log_files }}"
+  loop_control:
+    loop_var: dh_start_log
+    label: "{{ dh_start_log.Source }}"
+  register: dh_vm_start_log_matches
+  failed_when: false
+
+- name: "Download VM and host startup logs without modifying the originals"
+  ansible.builtin.fetch:
+    src: "{{ dh_start_log.Source }}"
+    dest: "{{ current_test_log_folder }}/vm-start-failure-logs/{{ dh_start_log.Category }}/{{ '%04d' | format(dh_start_log_index + 1) }}-{{ dh_start_log.Name }}"
+    flat: true
+  delegate_to: "{{ host_machine_hostname }}"
+  loop: "{{ dh_vm_start_log_files }}"
+  loop_control:
+    loop_var: dh_start_log
+    index_var: dh_start_log_index
+    label: "{{ dh_start_log.Source }}"
+  register: dh_vm_start_log_downloads
+  failed_when: false
+
+- name: "Write the startup failure log summary locally"
+  ansible.builtin.template:
+    src: "templates/win_host_vm_start_logs.log.j2"
+    dest: "{{ current_test_log_folder }}/vm-start-failure-logs/diagnostics.log"
+    mode: "0644"
+  delegate_to: localhost

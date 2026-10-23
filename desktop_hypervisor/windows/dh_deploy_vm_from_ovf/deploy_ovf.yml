@@ -7,16 +7,20 @@
     win_check_file_exist_file: "{{ dh_vm_vmx_path }}"
     vm_guest_ip: "{{ host_machine_hostname }}"
 
+- name: "Preserve OVF VMX existence before other file checks"
+  ansible.builtin.set_fact:
+    dh_ovf_vmx_exists: "{{ win_check_file_exist_result | bool }}"
+
 - name: "Open Guest vm on {{ host_machine_hostname }}"
-  when: win_check_file_exist_result
+  when: dh_ovf_vmx_exists
   block:
     - name: "Update the vmx file extracted from ovf"
       include_tasks: ../../common/set_vm_config.yml
 
-    - name: "Power on VM"
-      include_tasks: ../../common/dh_host_power_vm.yml
+    - name: "Start OVF VM and capture the failure state"
+      include_tasks: ../utils/win_host_start_vm_with_screenshot.yml
       vars:
-        vm_power_option: "start"
+        dh_vm_start_context: "ovf"
 
     - name: "Pause 30 seconds before taking VM screenshot"
       ansible.builtin.pause:

@@ -1,0 +1,35 @@
+===== VM start failure =====
+Host: {{ host_machine_hostname }}
+VMX: {{ dh_vm_vmx_path }}
+{{ dh_vm_start_failure | default({}) | to_nice_json }}
+
+===== Log search =====
+The newest 3 VM logs and newest 5 host runtime logs are selected by modification time.
+These files may predate this start attempt; check their UTC timestamps and VM context.
+{% for directory in dh_vm_start_runtime_logs.result.directories + dh_vm_start_host_logs.directories %}
+{{ directory }}
+{% endfor %}
+Logs found: {{ dh_vm_start_log_files | length }}
+{% if dh_vm_start_log_files | length == 0 %}
+No matching runtime logs were found. The VM may have failed before creating a log.
+{% endif %}
+
+===== Download results =====
+{% for download in dh_vm_start_log_downloads.results %}
+Source: {{ download.dh_start_log.Source }}
+Updated (UTC): {{ download.dh_start_log.UpdatedUtc }}
+Local file: {{ download.dest | default('unavailable') }}
+Details: {{ download.msg | default('Downloaded') }}
+
+{% endfor %}
+===== Error keyword context =====
+The last 2000 lines of each log are checked; at most 100 matches with 3 context lines are shown.
+Keyword matches are diagnostic hints, not a root cause verdict.
+{% for match in dh_vm_start_log_matches.results %}
+
+===== {{ match.dh_start_log.Source }} =====
+{% for line in match.output | default([]) %}
+{{ line }}
+{% endfor %}
+Errors: {{ match.error | default([]) | to_nice_json }}
+{% endfor %}
