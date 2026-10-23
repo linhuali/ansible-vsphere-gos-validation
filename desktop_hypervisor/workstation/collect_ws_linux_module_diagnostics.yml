@@ -1,0 +1,74 @@
+# Copyright 2026 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Collect Linux host diagnostics without failing on unavailable commands or devices.
+# Required variables: host_machine_hostname, host_machine_type, current_test_log_folder.
+- name: "Collect Linux host VMware module diagnostics"
+  ansible.builtin.shell: "{{ ws_diagnostic.command }}"
+  become: true
+  become_user: root
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_linux_module_diagnostics
+  changed_when: false
+  failed_when: false
+  loop:
+    - title: "Kernel"
+      command: "uname -a"
+    - title: "VMware Version"
+      command: "vmware -v"
+    - title: "Kernel Build Directory"
+      command: 'ls -ld /lib/modules/$(uname -r)/build'
+    - title: "VMware Modules"
+      command: "lsmod | grep -E 'vmmon|vmnet' || true"
+    - title: "Module Information: vmmon"
+      command: "modinfo vmmon"
+    - title: "Module Filename: vmmon"
+      command: "modinfo -F filename vmmon"
+    - title: "Module Vermagic: vmmon"
+      command: "modinfo -F vermagic vmmon"
+    - title: "Module Information: vmnet"
+      command: "modinfo vmnet"
+    - title: "Module Filename: vmnet"
+      command: "modinfo -F filename vmnet"
+    - title: "Module Vermagic: vmnet"
+      command: "modinfo -F vermagic vmnet"
+    - title: "VMware Device"
+      command: "ls -l /dev/vmmon /dev/vmnet* 2>&1"
+    - title: "Secure Boot"
+      command: "mokutil --sb-state 2>&1"
+    - title: "VMware Kernel Messages"
+      command: >-
+        journalctl -k -b --no-pager |
+        grep -iE 'vmmon|vmnet|lockdown|unknown symbol|signature|verification' |
+        tail -60
+    - title: "VMware Modconfig Logs"
+      command: "find /tmp /var/log -type f -name 'vmware-modconfig-*.log' 2>/dev/null"
+  loop_control:
+    loop_var: ws_diagnostic
+    label: "{{ ws_diagnostic.title }}"
+
+- name: "Write Linux host VMware module diagnostics log"
+  ansible.builtin.copy:
+    dest: "/tmp/vmware-module-diagnostics.log"
+    mode: "0644"
+    content: |
+      {% for diagnostic in ws_linux_module_diagnostics.results %}
+      ===== {{ diagnostic.ws_diagnostic.title }} =====
+      Command: {{ diagnostic.ws_diagnostic.command }}
+      Return code: {{ diagnostic.rc | default('unavailable') }}
+      {{ diagnostic.stdout | default('') }}
+      {% if diagnostic.stderr | default('') %}
+      stderr:
+      {{ diagnostic.stderr }}
+      {% endif %}
+
+      {% endfor %}
+  become: true
+  become_user: root
+  delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Get the VMware module diagnostics log to local"
+  include_tasks: ../common/dh_get_file.yml
+  vars:
+    file_src_path: "/tmp/vmware-module-diagnostics.log"
+    file_dst_path: "{{ current_test_log_folder }}/"
