@@ -14,12 +14,20 @@ Logs found: {{ dh_vm_start_log_files | length }}
 No matching runtime logs were found. The VM may have failed before creating a log.
 {% endif %}
 
+===== Snapshot results =====
+{% for snapshot in dh_vm_start_log_snapshots.results %}
+Source: {{ snapshot.dh_start_log.Source }}
+Snapshot: {{ (snapshot.result | default({})).snapshot | default('unavailable') }}
+Errors: {{ snapshot.error | default([]) | to_nice_json }}
+Details: {{ snapshot.msg | default('') }}
+
+{% endfor %}
 ===== Download results =====
 {% for download in dh_vm_start_log_downloads.results %}
-Source: {{ download.dh_start_log.Source }}
-Updated (UTC): {{ download.dh_start_log.UpdatedUtc }}
+Source: {{ download.dh_snapshot.dh_start_log.Source }}
+Updated (UTC): {{ download.dh_snapshot.dh_start_log.UpdatedUtc }}
 Local file: {{ download.dest | default('unavailable') }}
-Details: {{ download.msg | default('Downloaded') }}
+Details: {{ download.msg | default('Skipped' if download.skipped | default(false) else 'Downloaded') }}
 
 {% endfor %}
 ===== Error keyword context =====
@@ -27,7 +35,7 @@ The last 2000 lines of each log are checked; at most 100 matches with 3 context 
 Keyword matches are diagnostic hints, not a root cause verdict.
 {% for match in dh_vm_start_log_matches.results %}
 
-===== {{ match.dh_start_log.Source }} =====
+===== {{ match.dh_snapshot.dh_start_log.Source }} =====
 {% for line in match.output | default([]) %}
 {{ line }}
 {% endfor %}

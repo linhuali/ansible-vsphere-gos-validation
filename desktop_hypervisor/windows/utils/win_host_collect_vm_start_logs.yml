@@ -84,42 +84,125 @@
     mode: "0755"
   delegate_to: localhost
 
-- name: "Inspect recent startup logs for error keyword context"
-  ansible.windows.win_powershell:
-    parameters:
-      LogPath: "{{ dh_start_log.Source }}"
-    error_action: stop
-    script: |
-      param([string]$LogPath)
-      $Ansible.Changed = $false
-      Get-Content -LiteralPath $LogPath -Tail 2000 |
-          Select-String -Pattern 'error|fail|panic|vmx86|signature|577|denied|cannot|unable|VT-x|AMD-V|Hyper-V|VBS' -Context 3,3 |
-          Select-Object -Last 100 | Out-String -Width 240
+- name: "Create a temporary directory for startup log snapshots"
+  ansible.windows.win_tempfile:
+    state: directory
+    prefix: vm-start-logs-
   delegate_to: "{{ host_machine_hostname }}"
-  loop: "{{ dh_vm_start_log_files }}"
-  loop_control:
-    loop_var: dh_start_log
-    label: "{{ dh_start_log.Source }}"
-  register: dh_vm_start_log_matches
-  failed_when: false
+  register: dh_vm_start_log_staging
 
-- name: "Download VM and host startup logs without modifying the originals"
-  ansible.builtin.fetch:
-    src: "{{ dh_start_log.Source }}"
-    dest: "{{ current_test_log_folder }}/vm-start-failure-logs/{{ dh_start_log.Category }}/{{ '%04d' | format(dh_start_log_index + 1) }}-{{ dh_start_log.Name }}"
-    flat: true
-  delegate_to: "{{ host_machine_hostname }}"
-  loop: "{{ dh_vm_start_log_files }}"
-  loop_control:
-    loop_var: dh_start_log
-    index_var: dh_start_log_index
-    label: "{{ dh_start_log.Source }}"
-  register: dh_vm_start_log_downloads
-  failed_when: false
+- name: "Collect startup log snapshots and remove temporary files"
+  block:
+    - name: "Snapshot startup logs while allowing VMware to keep writing"
+      ansible.windows.win_powershell:
+        parameters:
+          LogPath: "{{ dh_start_log.Source }}"
+          SnapshotPath: "{{ dh_vm_start_log_staging.path }}\\{{ '%04d' | format(dh_start_log_index + 1) }}-{{ dh_start_log.Name }}"
+        error_action: stop
+        script: |
+          param([string]$LogPath, [string]$SnapshotPath)
+          $source = $null
+          $destination = $null
+          try {
+              $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+              $source = [System.IO.File]::Open($LogPath, [System.IO.FileMode]::Open,
+                  [System.IO.FileAccess]::Read, $share)
+              $destination = [System.IO.File]::Create($SnapshotPath)
+              # Bound the copy to the initial length even if VMware keeps appending.
+              $remaining = $source.Length
+              $buffer = New-Object byte[] 65536
+              while ($remaining -gt 0) {
+                  $count = $source.Read($buffer, 0, [int][Math]::Min($buffer.Length, $remaining))
+                  if ($count -eq 0) { break }
+                  $destination.Write($buffer, 0, $count)
+                  $remaining -= $count
+              }
+              $Ansible.Result = @{ snapshot = $SnapshotPath }
+          } finally {
+              if ($null -ne $destination) { $destination.Dispose() }
+              if ($null -ne $source) { $source.Dispose() }
+          }
+      delegate_to: "{{ host_machine_hostname }}"
+      loop: "{{ dh_vm_start_log_files }}"
+      loop_control:
+        loop_var: dh_start_log
+        index_var: dh_start_log_index
+        label: "{{ dh_start_log.Source }}"
+      register: dh_vm_start_log_snapshots
+      failed_when: false
 
-- name: "Write the startup failure log summary locally"
-  ansible.builtin.template:
-    src: "templates/win_host_vm_start_logs.log.j2"
-    dest: "{{ current_test_log_folder }}/vm-start-failure-logs/diagnostics.log"
-    mode: "0644"
-  delegate_to: localhost
+    - name: "Inspect startup log snapshots for error keyword context"
+      ansible.windows.win_powershell:
+        parameters:
+          LogPath: "{{ dh_snapshot.result.snapshot }}"
+          SourceName: "{{ dh_snapshot.dh_start_log.Name }}"
+        error_action: stop
+        script: |
+          param([string]$LogPath, [string]$SourceName)
+          $Ansible.Changed = $false
+          $lines = @(Get-Content -LiteralPath $LogPath -Tail 2000)
+          # Keep UI dialog text separate from broad keyword matches, without
+          # Out-String formatting that can wrap long error messages.
+          $dialogContext = @()
+          if ($SourceName -match '^vmware-ui.*\.log$') {
+              $dialogContext = @($lines | Select-String -Pattern 'DlgUI:' -Context 0,3 |
+                  Select-Object -Last 20 | ForEach-Object {
+                      $_.Line
+                      $_.Context.PostContext
+                  })
+          }
+          $Ansible.Result = @{ ui_dialog_context = $dialogContext }
+          $lines |
+              Select-String -Pattern 'error|fail|panic|vmx86|signature|577|denied|cannot|unable|VT-x|AMD-V|Hyper-V|VBS' -Context 3,3 |
+              Select-Object -Last 100 | Out-String -Width 240
+      delegate_to: "{{ host_machine_hostname }}"
+      loop: "{{ dh_vm_start_log_snapshots.results }}"
+      loop_control:
+        loop_var: dh_snapshot
+        label: "{{ dh_snapshot.dh_start_log.Source }}"
+      when: dh_snapshot.result.snapshot is defined
+      register: dh_vm_start_log_matches
+      failed_when: false
+
+    - name: "Log Windows host VMware UI dialog messages after VM start failure"
+      ansible.builtin.debug:
+        msg: |
+          Windows host VMware UI dialog context collected after VM start failure:
+          Source: {{ dh_ui_match.dh_snapshot.dh_start_log.Source }}
+          Source updated (UTC): {{ dh_ui_match.dh_snapshot.dh_start_log.UpdatedUtc }}
+          These entries may predate this start attempt; check their timestamps and VM context.
+          {{ dh_ui_match.result.ui_dialog_context | join('\n') }}
+      loop: "{{ dh_vm_start_log_matches.results }}"
+      loop_control:
+        loop_var: dh_ui_match
+        label: "{{ dh_ui_match.dh_snapshot.dh_start_log.Source }}"
+      when: (dh_ui_match.result | default({})).ui_dialog_context | default([]) | length > 0
+      tags:
+        - fail_message
+
+    - name: "Download startup log snapshots without modifying the originals"
+      ansible.builtin.fetch:
+        src: "{{ dh_snapshot.result.snapshot }}"
+        dest: "{{ current_test_log_folder }}/vm-start-failure-logs/{{ dh_snapshot.dh_start_log.Category }}/{{ dh_snapshot.result.snapshot | win_basename }}"
+        flat: true
+      delegate_to: "{{ host_machine_hostname }}"
+      loop: "{{ dh_vm_start_log_snapshots.results }}"
+      loop_control:
+        loop_var: dh_snapshot
+        label: "{{ dh_snapshot.dh_start_log.Source }}"
+      when: dh_snapshot.result.snapshot is defined
+      register: dh_vm_start_log_downloads
+      failed_when: false
+
+    - name: "Write the startup failure log summary locally"
+      ansible.builtin.template:
+        src: "templates/win_host_vm_start_logs.log.j2"
+        dest: "{{ current_test_log_folder }}/vm-start-failure-logs/diagnostics.log"
+        mode: "0644"
+      delegate_to: localhost
+  always:
+    - name: "Remove temporary startup log snapshots"
+      ansible.windows.win_file:
+        path: "{{ dh_vm_start_log_staging.path }}"
+        state: absent
+      delegate_to: "{{ host_machine_hostname }}"
