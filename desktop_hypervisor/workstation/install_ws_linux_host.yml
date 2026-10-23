@@ -154,6 +154,9 @@
         (('error' in (ws_module_build_result.stdout | lower)) or
         ('unable to install all modules' in (ws_module_build_result.stdout | lower))))
 
+    - name: "Collect VMware module diagnostics after module build"
+      include_tasks: collect_ws_linux_module_diagnostics.yml
+
     #- name: "Reboot Linux host"
     #  ansible.builtin.reboot:
     #    reboot_timeout: 300
