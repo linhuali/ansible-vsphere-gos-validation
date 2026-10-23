@@ -1,0 +1,238 @@
+# Copyright 2026 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# Run using the Windows host administrator connection used for installation.
+# Required variables: host_machine_hostname, current_test_log_folder.
+# Optional: ws_windows_install_started.stdout (host UTC timestamp), ws_install_result.rc.
+# Missing optional logs/diagnostic providers are recorded, not treated as install failures.
+- name: "Create Windows Workstation diagnostics directory"
+  ansible.windows.win_tempfile:
+    state: directory
+    prefix: "vmware-ws-install-diagnostics-"
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_windows_diagnostics_directory
+
+- name: "Locate Windows installation log directories"
+  ansible.windows.win_powershell:
+    script: |
+      $profiles = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\*' |
+          ForEach-Object { [Environment]::ExpandEnvironmentVariables($_.ProfileImagePath) }
+      $tempRoots = @(
+          $env:TEMP
+          (Join-Path $env:LOCALAPPDATA 'Temp')
+          (Join-Path $env:SystemRoot 'Temp')
+          (Join-Path $env:SystemRoot 'System32\config\systemprofile\AppData\Local\Temp')
+      ) + @($profiles | ForEach-Object { Join-Path $_ 'AppData\Local\Temp' })
+      $Ansible.Result = @{
+          temp_roots = @($tempRoots | Sort-Object -Unique)
+          program_data = Join-Path $env:ProgramData 'VMware'
+          setup_log = Join-Path $env:SystemRoot 'INF\setupapi.dev.log'
+          user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+          collected_at = (Get-Date).ToUniversalTime().ToString('o')
+      }
+      $Ansible.Changed = $false
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_windows_log_directories
+
+- name: "Find installer logs updated during this installation"
+  ansible.windows.win_powershell:
+    parameters:
+      TempRoots: "{{ ws_windows_log_directories.result.temp_roots }}"
+      ProgramDataLogs: "{{ ws_windows_log_directories.result.program_data }}"
+      InstallStartedAt: "{{ (ws_windows_install_started | default({})).get('stdout', '') | trim }}"
+    script: |
+      param([string[]]$TempRoots, [string]$ProgramDataLogs, [string]$InstallStartedAt)
+      $since = if ($InstallStartedAt) { [datetimeoffset]::Parse($InstallStartedAt).UtcDateTime } else { $null }
+      $candidates = @(
+          foreach ($root in $TempRoots) {
+              if (-not (Test-Path -LiteralPath $root)) { continue }
+              Get-ChildItem -LiteralPath $root -File -ErrorAction SilentlyContinue |
+                  Where-Object { $_.Name -match '^(vmsetup|vminst|vmmsi|vmware).*\.log$' }
+              Get-ChildItem -LiteralPath $root -Directory -Filter 'vmware-*' -ErrorAction SilentlyContinue |
+                  Where-Object { $_.Name -notlike 'vmware-ws-install-diagnostics-*' } |
+                  ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -File -Recurse -Filter '*.log' -ErrorAction SilentlyContinue }
+          }
+          if (Test-Path -LiteralPath $ProgramDataLogs) {
+              Get-ChildItem -LiteralPath $ProgramDataLogs -File -Recurse -Filter '*.log' -ErrorAction SilentlyContinue
+          }
+      )
+      $logs = @($candidates | Sort-Object FullName -Unique |
+          Where-Object { -not $since -or $_.LastWriteTimeUtc -ge $since } |
+          ForEach-Object { @{ Source = $_.FullName; LastWriteTimeUtc = $_.LastWriteTimeUtc.ToString('o'); Length = $_.Length } })
+      $Ansible.Result = @{ logs = $logs }
+      $Ansible.Changed = $false
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_windows_installer_logs
+
+- name: "Copy installer logs into numbered diagnostic subdirectories"
+  ansible.windows.win_powershell:
+    parameters:
+      SourcePath: "{{ ws_installer_log.Source }}"
+      Stage: "{{ ws_windows_diagnostics_directory.path }}"
+      Index: "{{ ws_installer_log_index + 1 }}"
+    script: |
+      param([string]$SourcePath, [string]$Stage, [int]$Index)
+      $relative = 'installer-logs\{0:D4}\{1}' -f $Index, (Split-Path $SourcePath -Leaf)
+      $destination = Join-Path $Stage $relative
+      $status = 'Copied'
+      try {
+          New-Item -ItemType Directory -Path (Split-Path $destination) -Force -ErrorAction Stop | Out-Null
+          Copy-Item -LiteralPath $SourcePath -Destination $destination -ErrorAction Stop
+      } catch {
+          $status = $_.Exception.Message
+      }
+      $Ansible.Result = @{ Source = $SourcePath; RelativePath = $relative; CopyStatus = $status; Destination = $destination }
+      $Ansible.Changed = ($status -eq 'Copied')
+  delegate_to: "{{ host_machine_hostname }}"
+  loop: "{{ ws_windows_installer_logs.result.logs }}"
+  loop_control:
+    loop_var: ws_installer_log
+    index_var: ws_installer_log_index
+    label: "{{ ws_installer_log.Source }}"
+  register: ws_windows_log_copies
+
+- name: "Write installer log source and copy status manifest"
+  ansible.windows.win_copy:
+    dest: "{{ ws_windows_diagnostics_directory.path }}\\installer-log-manifest.json"
+    content: |
+      [
+      {% for copy in ws_windows_log_copies.results %}
+      {{ copy.ws_installer_log | combine(copy.result) | to_nice_json }}{{ ',' if not loop.last else '' }}
+      {% endfor %}
+      ]
+  delegate_to: "{{ host_machine_hostname }}"
+
+- name: "Copy the Windows driver installation log"
+  ansible.windows.win_copy:
+    src: "{{ ws_windows_log_directories.result.setup_log }}"
+    dest: "{{ ws_windows_diagnostics_directory.path }}\\setupapi.dev.log"
+    remote_src: true
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_windows_setup_log_copy
+  failed_when: false
+
+- name: "Extract installer log error keyword context"
+  ansible.windows.win_powershell:
+    parameters:
+      LogPath: "{{ ws_log_copy.result.Destination }}"
+    error_action: stop
+    script: |
+      param([string]$LogPath)
+      $Ansible.Changed = $false
+      Select-String -LiteralPath $LogPath -Pattern 'vmx86|driver|signature|failed|error|return value 3' -Context 3,3 |
+          Select-Object -First 100 | Out-String -Width 240
+  delegate_to: "{{ host_machine_hostname }}"
+  loop: "{{ ws_windows_log_copies.results }}"
+  loop_control:
+    loop_var: ws_log_copy
+    label: "{{ ws_log_copy.result.Source }}"
+  when: ws_log_copy.result.CopyStatus == 'Copied'
+  register: ws_windows_log_matches
+  failed_when: false
+
+- name: "Extract Windows driver installation error keyword context"
+  ansible.windows.win_powershell:
+    parameters:
+      LogPath: "{{ ws_windows_diagnostics_directory.path }}\\setupapi.dev.log"
+    error_action: stop
+    script: |
+      param([string]$LogPath)
+      $Ansible.Changed = $false
+      Select-String -LiteralPath $LogPath -Pattern 'vmx86|vmware|!!!|signature' -Context 3,3 |
+          Select-Object -Last 100 | Out-String -Width 240
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_windows_setup_log_matches
+  failed_when: false
+
+- name: "Check vmx86 service configuration and state"
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      sc.exe qc vmx86
+      "sc.exe qc exit code: $LASTEXITCODE"
+      sc.exe query vmx86
+      "sc.exe query exit code: $LASTEXITCODE"
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_windows_vmx86_service
+  failed_when: false
+
+- name: "Check vmx86 driver signature"
+  ansible.windows.win_powershell:
+    error_action: stop
+    script: |
+      $Ansible.Changed = $false
+      Get-AuthenticodeSignature -LiteralPath (Join-Path $env:SystemRoot 'System32\drivers\vmx86.sys') | Format-List * | Out-String -Width 240
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_windows_vmx86_signature
+  failed_when: false
+
+- name: "Check Windows Device Guard configuration"
+  ansible.windows.win_powershell:
+    error_action: stop
+    script: |
+      $Ansible.Changed = $false
+      Get-CimInstance -Namespace root\Microsoft\Windows\DeviceGuard -ClassName Win32_DeviceGuard | Format-List * | Out-String -Width 240
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_windows_device_guard
+  failed_when: false
+
+- name: "Export Windows System and Code Integrity event logs"
+  ansible.windows.win_powershell:
+    parameters:
+      Channel: "{{ ws_event_log.channel }}"
+      Destination: "{{ ws_windows_diagnostics_directory.path }}\\{{ ws_event_log.filename }}"
+    script: |
+      param([string]$Channel, [string]$Destination)
+      wevtutil.exe epl $Channel $Destination /ow:true
+      "wevtutil.exe exit code: $LASTEXITCODE"
+  delegate_to: "{{ host_machine_hostname }}"
+  loop:
+    - channel: "System"
+      filename: "System.evtx"
+    - channel: "Microsoft-Windows-CodeIntegrity/Operational"
+      filename: "CodeIntegrity.evtx"
+  loop_control:
+    loop_var: ws_event_log
+    label: "{{ ws_event_log.channel }}"
+  register: ws_windows_event_logs
+  failed_when: false
+
+- name: "Write the Windows Workstation installation diagnostics summary"
+  ansible.windows.win_template:
+    src: "templates/ws_windows_install_diagnostics.log.j2"
+    dest: "{{ ws_windows_diagnostics_directory.path }}\\diagnostics.log"
+  delegate_to: "{{ host_machine_hostname }}"
+
+- name: "List collected Windows Workstation diagnostic files"
+  ansible.windows.win_powershell:
+    parameters:
+      Stage: "{{ ws_windows_diagnostics_directory.path }}"
+    script: |
+      param([string]$Stage)
+      $files = @(Get-ChildItem -LiteralPath $Stage -File -Recurse | ForEach-Object {
+          @{
+              source_path = $_.FullName
+              relative_path = $_.FullName.Substring($Stage.Length + 1).Replace('\', '/')
+          }
+      })
+      $Ansible.Result = @{ files = $files }
+      $Ansible.Changed = $false
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_windows_install_diagnostics
+
+- name: "Get Windows Workstation installation diagnostic files to local"
+  ansible.builtin.fetch:
+    src: "{{ ws_diagnostic_file.source_path }}"
+    dest: "{{ current_test_log_folder }}/vmware-ws-install-diagnostics/{{ ws_diagnostic_file.relative_path }}"
+    flat: true
+  delegate_to: "{{ host_machine_hostname }}"
+  loop: "{{ ws_windows_install_diagnostics.result.files }}"
+  loop_control:
+    loop_var: ws_diagnostic_file
+    label: "{{ ws_diagnostic_file.relative_path }}"
+
+- name: "Display Windows Workstation installation diagnostics collection result"
+  ansible.builtin.debug:
+    msg:
+      - "Installer logs found: {{ ws_windows_installer_logs.result.logs | length }}"
+      - "Diagnostic files: {{ current_test_log_folder }}/vmware-ws-install-diagnostics/"
