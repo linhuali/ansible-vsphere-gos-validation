@@ -147,6 +147,9 @@
 
 - name: "Get Guest VM IP"
   include_tasks: ../../common/dh_host_get_guest_ip.yml
+  vars:
+    # Allow about 90 minutes for Windows installation and VMware Tools startup.
+    dh_guest_getip_retry_times: 540
 
 - name: "Take a VM screenshot after complete"
   include_tasks: ../../common/dh_vm_take_screenshot.yml

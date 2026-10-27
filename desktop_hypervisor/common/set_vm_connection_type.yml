@@ -93,5 +93,16 @@
   vars:
     vm_power_option: "start"
 
+- name: "Capture Guest VM after bridged network startup before retrieving IP"
+  include_tasks: dh_vm_take_screenshot.yml
+  vars:
+    screenshot_name: "bridged_network_start"
+  when: dh_vm_vnc_port is defined and dh_vm_vnc_port
+
+- name: "Report skipped bridged network startup screenshot"
+  ansible.builtin.debug:
+    msg: "Guest screenshot skipped because dh_vm_vnc_port is not configured."
+  when: dh_vm_vnc_port is not defined or not dh_vm_vnc_port
+
 - name: "Get Guest VM IP"
   include_tasks: dh_host_get_guest_ip.yml
