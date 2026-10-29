@@ -111,7 +111,7 @@
 
       rescue:
         - name: "Test case failure"
-          include_tasks: ../../common/test_rescue.yml
+          include_tasks: ../common/dh_host_test_rescue.yml
           vars:
             exit_testing_when_fail: true
           #when: is_vsphere_env

@@ -1,0 +1,10 @@
+# Copyright 2026 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+- name: "Handle Desktop Hypervisor host test failure"
+  block:
+    - name: "Collect host VM diagnostics and report failure"
+      include_tasks: ../../common/test_rescue.yml
+  always:
+    - name: "Cleanup vSphere host VM after failure"
+      include_tasks: dh_cleanup_host_vm_on_failure.yml
