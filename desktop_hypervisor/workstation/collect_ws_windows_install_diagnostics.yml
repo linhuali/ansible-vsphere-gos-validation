@@ -156,6 +156,18 @@
   register: ws_windows_vmx86_service
   failed_when: false
 
+- name: "Collect vmx86 driver file version information"
+  ansible.windows.win_powershell:
+    error_action: stop
+    script: |
+      $Ansible.Changed = $false
+      (Get-Item -LiteralPath (Join-Path $env:SystemRoot 'System32\drivers\vmx86.sys')).VersionInfo |
+          Format-List FileName, FileDescription, FileVersion, ProductName, ProductVersion, LegalCopyright, OriginalFilename |
+          Out-String -Width 240
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_windows_vmx86_version
+  failed_when: false
+
 - name: "Check vmx86 driver signature"
   ansible.windows.win_powershell:
     error_action: stop
