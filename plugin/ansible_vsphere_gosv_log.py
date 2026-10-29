@@ -886,9 +886,15 @@ class CallbackModule(CallbackBase):
                 self.test_runs[test_id].status = 'Blocked'
 
 
+        is_workstation_on_vsphere = (
+            str(self._ansible_gosv_facts.get('is_vsphere_env', False)).lower() == 'true' and
+            str(self._ansible_gosv_facts.get('in_desktop_hypervisor_testing', False)).lower() == 'true')
+
         # Get the column width
         idx_col_width = max([len(str(total_count)), 2])
         name_col_width = max([len(test_result.name) for test_result in self.test_runs.values()])
+        if is_workstation_on_vsphere:
+            name_col_width = max(name_col_width, len('deploy_vm_ovf_as_host'))
         status_col_width = max([(len(test_result.status) + 2)
                                 if test_result.status != "Passed"
                                 else len(test_result.status)
@@ -935,6 +941,9 @@ class CallbackModule(CallbackBase):
                     test_result.name = "deploy_vm_{}_{}_{}".format(self.testing_vars['firmware'].lower(),
                                                                    self.testing_vars['boot_disk_controller'].lower(),
                                                                    self.testing_vars['network_adapter_type'].lower())
+
+            if is_workstation_on_vsphere and test_result.name == 'deploy_vm_ovf':
+                test_result.name = 'deploy_vm_ovf_as_host'
 
             test_idx += 1
             test_exec_time = time.strftime('%H:%M:%S', time.gmtime(test_result.duration))
@@ -1114,7 +1123,8 @@ class CallbackModule(CallbackBase):
         task_result = result._result
         task_args = task.args
         task_file = os.path.basename(task.get_path()).split(':')[0].strip()
-        if ((task_file in ["create_local_log_path.yml",
+        if ((task_file in ["env_setup.yml",
+                           "create_local_log_path.yml",
                            "set_current_testcase_facts.yml",
                            "vcenter_get_version_build.yml",
                            "esxi_get_version_build.yml",

@@ -1,0 +1,32 @@
+# Copyright 2026 VMware, Inc.
+# SPDX-License-Identifier: BSD-2-Clause
+---
+# The final fail in the rescue handler prevents env_cleanup from running on
+# localhost. Delete the outer host VM here, after diagnostics, before exiting.
+- name: "Cleanup vSphere host VM when aborting Desktop Hypervisor testing"
+  when:
+    - is_vsphere_env | default(false) | bool
+    - cleanup_vm | default(false) | bool
+    - vm_exists | default(false) | bool
+    - exit_testing_when_fail | default(false) | bool
+  block:
+    - name: "Power off the vSphere host VM"
+      block:
+        - name: "Set host VM power state to powered-off"
+          include_tasks: ../../common/vm_set_power_state.yml
+          vars:
+            vm_power_state_set: 'powered-off'
+      always:
+        - name: "Remove the vSphere host VM"
+          include_tasks: ../../common/vm_remove.yml
+          vars:
+            vm_remove_ignore_errors: true
+
+        - name: "Record host VM cleanup status"
+          ansible.builtin.set_fact:
+            vm_cleaned_up: true
+            vm_exists: false
+          when:
+            - vm_remove_result.changed is defined
+            - vm_remove_result.changed
+            - not (vm_remove_result.failed | default(false) | bool)
