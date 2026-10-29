@@ -33,6 +33,7 @@ Errors: {{ match.error | default([]) | to_nice_json }}
 {% for check in [
     {'title': 'Windows driver installation log', 'data': ws_windows_setup_log_matches},
     {'title': 'vmx86 service configuration and state', 'data': ws_windows_vmx86_service},
+    {'title': 'vmx86 driver file version information', 'data': ws_windows_vmx86_version},
     {'title': 'vmx86 driver signature', 'data': ws_windows_vmx86_signature},
     {'title': 'Device Guard', 'data': ws_windows_device_guard}] %}
 
