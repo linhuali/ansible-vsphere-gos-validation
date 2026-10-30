@@ -40,6 +40,9 @@
 
     - name: "Get Guest VM IP"
       include_tasks: ../../common/dh_host_get_guest_ip.yml
+      vars:
+        # Allow about 10 minutes for Windows boot and VMware Tools startup.
+        dh_guest_getip_retry_times: 60
 
     - name: "Power off VM"
       include_tasks: ../../common/dh_host_power_vm.yml
