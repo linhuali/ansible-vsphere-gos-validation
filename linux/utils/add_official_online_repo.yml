@@ -131,7 +131,11 @@
   ansible.builtin.set_fact:
     guest_online_repos:
       - name: "{{ guest_os_ansible_distribution }}_{{ guest_os_ansible_distribution_ver }}_OSS"
-        baseurl: "http://download.opensuse.org/distribution/leap/$releasever/repo/oss"
+        # Use the verified SLC mirror for Leap 16.1 to avoid unavailable redirected mirrors.
+        baseurl: >-
+          {{ 'https://slc-mirror.opensuse.org/distribution/leap/$releasever/repo/oss'
+             if guest_os_ansible_distribution_ver is version('16.1', '==')
+             else 'http://download.opensuse.org/distribution/leap/$releasever/repo/oss' }}
   when: guest_os_ansible_distribution == "openSUSE Leap"
 
 - name: "Set online repositories for Photon OS"
