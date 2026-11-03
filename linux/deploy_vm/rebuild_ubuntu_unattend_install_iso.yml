@@ -120,17 +120,30 @@
 - name: "Rebuild ISO for Ubuntu desktop or live server using Subiquity installer"
   when: unattend_installer == "Ubuntu-Subiquity"
   block:
+    - name: "Set boot command options for Subiquity shutdown diagnostics"
+      ansible.builtin.set_fact:
+        subiquity_boot_options: >-
+          autoinstall plymouth.enable=0 systemd.log_level=debug
+          systemd.log_target=console systemd.show_status=1
+
+    - name: "Remove quiet and splash options from Subiquity boot configs"
+      ansible.builtin.replace:
+        path: "{{ unattend_iso_cache }}/{{ item }}"
+        regexp: '(?<!\S)(?:quiet|splash)(?!\S)'
+        replace: ''
+      loop: "{{ ['grub.cfg', 'txt.cfg'] if ubuntu_bios_cfg_exist | bool else ['grub.cfg'] }}"
+
     - name: "Update boot command options in boot/grub/grub.cfg"
       ansible.builtin.replace:
         path: "{{ unattend_iso_cache }}/grub.cfg"
         regexp: '(.*vmlinuz )(.*)'
-        replace: "\\1autoinstall \\2 {{ ubuntu_grub_opts }} "
+        replace: "\\1{{ subiquity_boot_options }} \\2 {{ ubuntu_grub_opts }} "
 
     - name: "Update boot command options in isolinux/txt.cfg"
       ansible.builtin.replace:
         path: "{{ unattend_iso_cache }}/txt.cfg"
         regexp: '(.*initrd )(.*)'
-        replace: "\\1autoinstall \\2 {{ ubuntu_grub_opts }} "
+        replace: "\\1{{ subiquity_boot_options }} \\2 {{ ubuntu_grub_opts }} "
       when: ubuntu_bios_cfg_exist | bool
 
     - name: "Set facts of files to be updated or added into Ubuntu ISO"

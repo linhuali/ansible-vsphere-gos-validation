@@ -57,5 +57,10 @@ autoinstall:
     - rm -f /etc/cloud/cloud.cfg.d/*-installer.cfg 2>/dev/null
     - sed -i 's/^#PermitRootLogin .*/PermitRootLogin yes/' /target/etc/ssh/sshd_config
     - sed -i 's/^#PasswordAuthentication .*/PasswordAuthentication yes/' /target/etc/ssh/sshd_config
+    - touch /run/casper-no-prompt
+    - |
+      test -f /run/casper-no-prompt &&
+        echo 'casper-no-prompt exists' > /dev/ttyS0
+      sed -i '2i exec 2>/dev/ttyS0\nset -x' /sbin/casper-stop
     - echo "{{ autoinstall_complete_msg }}" > /dev/ttyS0
   shutdown: 'poweroff'
