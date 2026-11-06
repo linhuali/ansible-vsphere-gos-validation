@@ -17,127 +17,135 @@
   tasks:
     - name: "Test case block"
       block:
-        - name: "Set update VMware tools by default"
-          ansible.builtin.set_fact:
-            dh_update_vmtools: true
-          when: dh_update_vmtools is undefined
-
-        - name: "VM has vmtools installed and dh_update_vmtools is set false"
-          include_tasks: ../../../common/skip_test_case.yml
-          vars:
-            skip_msg: "Test case '{{ ansible_play_name }}' is skipped because dh_update_vmtools is set to: {{ dh_update_vmtools }}"
-            skip_reason: "Skipped"
-          when: not dh_update_vmtools | bool
-
-        - name: "Test setup"
-          include_tasks: ../../common/dh_test_setup.yml
-          vars:
-            create_dh_test_folder: true
-            require_dh_vm_exists: "{{ true if (dh_new_vm is undefined or not dh_new_vm | bool) else false }}"
-
-        - name: "Make sure Guest VM exists"
-          ansible.builtin.assert:
-            that:
-              - dh_vm_exists
-              - dh_vm_vmx_exists
-            fail_msg: "VM with path '{{ dh_vm_vmx_path }}' does not exist, please deploy vm first."
-          when: dh_new_vm is defined and dh_new_vm | bool
-
-        - name: "Skip test case"
-          include_tasks: ../../../common/skip_test_case.yml
-          vars:
-            skip_msg: "Skip test case due to {{ dh_guest_id }} is not supported by {{ current_testcase_name }}'"
-            skip_reason: "Not Supported"
-          when:
-            - dh_vm_guest_id is not match('.*windows(9|11|20).*')
-
-        - name: "Skip test case"
-          include_tasks: ../../../common/skip_test_case.yml
-          vars:
-            skip_msg: "Skip test case due to win10 or under development VMware Tools can not test on VM with VBS enabled."
-            skip_reason: "Not Applicable"
-          when:
-            - dh_vm_vbs_enabled is defined and dh_vm_vbs_enabled | bool
-            - guest_os_ansible_architecture == "64-bit"
-            - (is_development_tools is defined and is_development_tools | bool) or dh_vm_guest_id is match('windows9.*')
-
-        - name: "Download VMware Tools ISO from URL"
-          include_tasks: download_vmtools.yml
-          when:
-            - dh_vmtools_url_path is defined
-            - dh_vmtools_url_path
-
-        - name: "Install vmtools in Windows Host"
-          when:
-            - dh_vm_tools_path is defined
-            - dh_vm_tools_path
+        - name: "Run test case and capture Windows host console"
           block:
-            - name: "Set vm as bridged to get a real IP"
-              include_tasks: ../../common/set_vm_connection_type.yml
-            - name: "Add Windows guest to in-memory inventory"
-              include_tasks: ../../../windows/utils/add_windows_host.yml
+            - name: "Set update VMware tools by default"
+              ansible.builtin.set_fact:
+                dh_update_vmtools: true
+              when: dh_update_vmtools is undefined
+
+            - name: "VM has vmtools installed and dh_update_vmtools is set false"
+              include_tasks: ../../../common/skip_test_case.yml
               vars:
-                vm_guest_ip: "{{ dh_vm_guest_ip }}"
-                vm_username: "{{ dh_vm_username }}"
-                vm_password: "{{ dh_vm_password }}"
-                vm_guest_group: "ws_guest"
-            - name: "Get Windows guest system info"
-              include_tasks: ../../../windows/utils/get_windows_system_info.yml
+                skip_msg: "Test case '{{ ansible_play_name }}' is skipped because dh_update_vmtools is set to: {{ dh_update_vmtools }}"
+                skip_reason: "Skipped"
+              when: not dh_update_vmtools | bool
+
+            - name: "Test setup"
+              include_tasks: ../../common/dh_test_setup.yml
               vars:
-                vm_guest_ip: "{{ dh_vm_guest_ip }}"
+                create_dh_test_folder: true
+                require_dh_vm_exists: "{{ true if (dh_new_vm is undefined or not dh_new_vm | bool) else false }}"
 
-            - name: "Pause 180 seconds"
-              ansible.builtin.pause:
-                seconds: 180
+            - name: "Make sure Guest VM exists"
+              ansible.builtin.assert:
+                that:
+                  - dh_vm_exists
+                  - dh_vm_vmx_exists
+                fail_msg: "VM with path '{{ dh_vm_vmx_path }}' does not exist, please deploy vm first."
+              when: dh_new_vm is defined and dh_new_vm | bool
 
-            - name: "Enable test signing"
-              include_tasks: ../../../windows/wintools_complete_install_verify/enable_test_signing.yml
-              when: is_development_tools is defined and is_development_tools | bool
-
-            #- name: "Prepare VMware Tools install"
-            #  include_tasks: ../../../windows/wintools_complete_install_verify/prepare_vmtools_install.yml
-            #  vars:
-            #    vm_guest_ip: "{{ dh_vm_guest_ip }}"
-
-            - name: "Install VMware Tools"
-              include_tasks: install_vmtools.yml
+            - name: "Skip test case"
+              include_tasks: ../../../common/skip_test_case.yml
               vars:
-                vm_guest_ip: "{{ dh_vm_guest_ip }}"
-                vm_username: "{{ host_machine_username }}"
-                vmtools_is_installed: true
+                skip_msg: "Skip test case due to {{ dh_guest_id }} is not supported by {{ current_testcase_name }}'"
+                skip_reason: "Not Supported"
+              when:
+                - dh_vm_guest_id is not match('.*windows(9|11|20).*')
 
-            - name: "Verify VMware Tools"
-              include_tasks: ../../../windows/wintools_complete_install_verify/verify_vmtools.yml
+            - name: "Skip test case"
+              include_tasks: ../../../common/skip_test_case.yml
               vars:
-                vm_guest_ip: "{{ dh_vm_guest_ip }}"
-                vm_username: "{{ host_machine_username }}"
+                skip_msg: "Skip test case due to win10 or under development VMware Tools can not test on VM with VBS enabled."
+                skip_reason: "Not Applicable"
+              when:
+                - dh_vm_vbs_enabled is defined and dh_vm_vbs_enabled | bool
+                - guest_os_ansible_architecture == "64-bit"
+                - (is_development_tools is defined and is_development_tools | bool) or dh_vm_guest_id is match('windows9.*')
 
-            #- name: "Detach or remove VMware Tools ISO"
-            #  include_tasks: detach_vmtools_and_remove.yml
+            - name: "Download VMware Tools ISO from URL"
+              include_tasks: download_vmtools.yml
+              when:
+                - dh_vmtools_url_path is defined
+                - dh_vmtools_url_path
 
-            - name: "Get VM guest info including detailed data"
-              include_tasks: ../../common/dh_get_guest_info.yml
+            - name: "Install vmtools in Windows Host"
+              when:
+                - dh_vm_tools_path is defined
+                - dh_vm_tools_path
+              block:
+                - name: "Set vm as bridged to get a real IP"
+                  include_tasks: ../../common/set_vm_connection_type.yml
+                - name: "Add Windows guest to in-memory inventory"
+                  include_tasks: ../../../windows/utils/add_windows_host.yml
+                  vars:
+                    vm_guest_ip: "{{ dh_vm_guest_ip }}"
+                    vm_username: "{{ dh_vm_username }}"
+                    vm_password: "{{ dh_vm_password }}"
+                    vm_guest_group: "ws_guest"
+                - name: "Get Windows guest system info"
+                  include_tasks: ../../../windows/utils/get_windows_system_info.yml
+                  vars:
+                    vm_guest_ip: "{{ dh_vm_guest_ip }}"
 
-            - name: "Get VMware Tools install log file"
-              include_tasks: ../../../windows/wintools_complete_install_verify/get_vmtools_install_log.yml
+                - name: "Pause 180 seconds"
+                  ansible.builtin.pause:
+                    seconds: 180
+
+                - name: "Enable test signing"
+                  include_tasks: ../../../windows/wintools_complete_install_verify/enable_test_signing.yml
+                  when: is_development_tools is defined and is_development_tools | bool
+
+                #- name: "Prepare VMware Tools install"
+                #  include_tasks: ../../../windows/wintools_complete_install_verify/prepare_vmtools_install.yml
+                #  vars:
+                #    vm_guest_ip: "{{ dh_vm_guest_ip }}"
+
+                - name: "Install VMware Tools"
+                  include_tasks: install_vmtools.yml
+                  vars:
+                    vm_guest_ip: "{{ dh_vm_guest_ip }}"
+                    vm_username: "{{ host_machine_username }}"
+                    vmtools_is_installed: true
+
+                - name: "Verify VMware Tools"
+                  include_tasks: ../../../windows/wintools_complete_install_verify/verify_vmtools.yml
+                  vars:
+                    vm_guest_ip: "{{ dh_vm_guest_ip }}"
+                    vm_username: "{{ host_machine_username }}"
+
+                #- name: "Detach or remove VMware Tools ISO"
+                #  include_tasks: detach_vmtools_and_remove.yml
+
+                - name: "Get VM guest info including detailed data"
+                  include_tasks: ../../common/dh_get_guest_info.yml
+
+                - name: "Get VMware Tools install log file"
+                  include_tasks: ../../../windows/wintools_complete_install_verify/get_vmtools_install_log.yml
+                  vars:
+                    vm_guest_ip: "{{ dh_vm_guest_ip }}"
+                    vm_username: "{{ host_machine_username }}"
+                  when: get_vmtools_install_log is defined and get_vmtools_install_log
+
+                - name: "Execute ipconfig /release in guest VM"
+                  ansible.windows.win_command: >-
+                    "{{ dh_host_vmrun_path }}" -T ws
+                    -gu "{{ dh_vm_username }}" -gp "{{ dh_vm_password }}"
+                    runProgramInGuest "{{ dh_vm_vmx_path }}" ipconfig.exe /release
+                  delegate_to: "{{ host_machine_hostname }}"
+                  ignore_errors: yes
+
+                - name: "Stop VM"
+                  include_tasks: ../../common/dh_host_power_vm.yml
+                  vars:
+                    vm_power_option: "stop"
+                    vmrun_extra_option: "soft"
+          always:
+            - name: "Take host screenshot after wintools_complete_install_verify"
+              include_tasks: ../utils/win_host_take_screenshot.yml
               vars:
-                vm_guest_ip: "{{ dh_vm_guest_ip }}"
-                vm_username: "{{ host_machine_username }}"
-              when: get_vmtools_install_log is defined and get_vmtools_install_log
+                host_screenshot_context: "wintools_complete_install_verify"
 
-            - name: "Execute ipconfig /release in guest VM"
-              ansible.windows.win_command: >-
-                "{{ dh_host_vmrun_path }}" -T ws 
-                -gu "{{ dh_vm_username }}" -gp "{{ dh_vm_password }}" 
-                runProgramInGuest "{{ dh_vm_vmx_path }}" ipconfig.exe /release
-              delegate_to: "{{ host_machine_hostname }}"
-              ignore_errors: yes
-
-            - name: "Stop VM"
-              include_tasks: ../../common/dh_host_power_vm.yml
-              vars:
-                vm_power_option: "stop"
-                vmrun_extra_option: "soft"
       rescue:
         - name: "Test case failure"
           include_tasks: ../../common/dh_test_rescue.yml
