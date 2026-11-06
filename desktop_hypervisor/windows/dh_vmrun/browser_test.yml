@@ -28,6 +28,19 @@
         url_timeout: 180
       delegate_to: "{{ host_machine_hostname }}"
 
+- name: "Wait for VMware Tools to be running before copying Firefox"
+  ansible.windows.win_command:
+    cmd: '"{{ dh_host_vmrun_path }}" -T ws checkToolsState "{{ dh_vm_vmx_path }}"'
+  delegate_to: "{{ host_machine_hostname }}"
+  register: browser_vmtools_state
+  changed_when: false
+  # Allow about five minutes for Tools startup without requiring a guest IP.
+  retries: "{{ dh_browser_tools_ready_retries | default(30) }}"
+  delay: 10
+  until:
+    - browser_vmtools_state.rc | default(-1) == 0
+    - (browser_vmtools_state.stdout | default('') | trim | lower) == 'running'
+
 - name: "Copy firefox setup.exe from host to guest with vmrun"
   ansible.windows.win_command:
     cmd: '"{{ dh_host_vmrun_path }}" -T ws -gu {{ dh_vm_username }} -gp {{ dh_vm_password }} copyFileFromHostToGuest "{{ dh_vm_vmx_path }}" {{ firefox_local_path }} {{ firefox_local_path }}'

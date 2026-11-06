@@ -46,6 +46,15 @@
           include_tasks: browser_test.yml
           when: host_machine_type == "windows"
       rescue:
+        - name: "Take a VM screenshot after browser test failure"
+          include_tasks: ../../common/dh_vm_take_screenshot.yml
+          vars:
+            screenshot_name: "browser_test_failure"
+          when:
+            - host_machine_hostname is defined
+            - dh_vm_vnc_port is defined
+            - current_test_log_folder is defined
+
         - name: "Test case failure"
           include_tasks: ../../common/dh_test_rescue.yml
           vars:
