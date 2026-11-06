@@ -4,19 +4,57 @@
 - name: "Stop VMs if running before uninstall_workstation"
   include_tasks: ../common/dh_host_stop_vms.yml
 
-# Set the uninstall_cmd compatible with Windows Server 2012 R2
+- name: "Create a unique Windows Workstation uninstall log"
+  ansible.windows.win_tempfile:
+    state: file
+    prefix: vmware-ws-uninstall-
+    suffix: .log
+  delegate_to: "{{ host_machine_hostname }}"
+  register: ws_uninstall_log
+
+# Keep registry lookup compatible with Windows Server 2012 R2.
 - name: "Set fact of uninstall command"
   ansible.builtin.set_fact:
-    uninstall_cmd: '$paths = @("HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall", "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"); $app = Get-ChildItem -Path $paths -ErrorAction SilentlyContinue | Get-ItemProperty -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match "VMware Workstation" } | Select-Object -First 1; if ($app) { $code = $app.PSChildName; Start-Process -FilePath "msiexec.exe" -ArgumentList "/x $code /qn /norestart" -Wait -NoNewWindow } else { Write-Output "VMware Workstation not found." }'
-    #uninstall_cmd: "$app = Get-WmiObject -Class Win32_Product | Where-Object {$_.Name -eq \"VMware Workstation\"}; $app.Uninstall()"
-    #uninstall_cmd: "Install-PackageProvider -Name Nuget -Confirm:$false -Force -ForceBootstrap; Get-Package -Name \"VMware Workstation*\" | Uninstall-Package"
+    uninstall_cmd: |
+      $ErrorActionPreference = 'Stop'
+      $logPath = '{{ ws_uninstall_log.path | replace("'", "''") }}'
+      $paths = @("HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall", "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall")
+      $app = Get-ChildItem -Path $paths -ErrorAction SilentlyContinue |
+          Get-ItemProperty -ErrorAction SilentlyContinue |
+          Where-Object { $_.DisplayName -match "VMware Workstation" } |
+          Select-Object -First 1
+      if ($app) {
+          $code = $app.PSChildName
+          $arguments = '/x {0} /qn /norestart /L*v "{1}"' -f $code, $logPath
+          $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $arguments -Wait -NoNewWindow -PassThru
+          Write-Output "Workstation uninstall exit code: $($process.ExitCode)"
+          if ($process.ExitCode -notin @(0, 3010, 1605, 1614)) {
+              exit $process.ExitCode
+          }
+      } else {
+          'VMware Workstation not found.' | Out-File -LiteralPath $logPath
+          Write-Output 'VMware Workstation not found.'
+      }
 
-- name: "Uninstall Workstation if it's installed"
-  include_tasks: ../../windows/utils/win_execute_cmd.yml
-  vars:
-    win_powershell_cmd: "{{ uninstall_cmd }}"
-    vm_guest_ip: "{{ host_machine_hostname }}"
-  register: ws_uninstall_result
+- name: "Uninstall Workstation and preserve the Windows uninstall log"
+  block:
+    - name: "Uninstall Workstation if it's installed"
+      include_tasks: ../../windows/utils/win_execute_cmd.yml
+      vars:
+        win_powershell_cmd: "{{ uninstall_cmd }}"
+        vm_guest_ip: "{{ host_machine_hostname }}"
+      register: ws_uninstall_result
+
+  always:
+    - name: "Fetch the Windows Workstation uninstall log"
+      ansible.builtin.fetch:
+        src: "{{ ws_uninstall_log.path }}"
+        dest: "{{ current_test_log_folder }}/vmware-ws-uninstall.log"
+        flat: true
+        fail_on_missing: false
+      delegate_to: "{{ host_machine_hostname }}"
+      ignore_errors: true
+      ignore_unreachable: true
 
 - name: "Check Workstation installation status in Windows host"
   include_tasks: ../common/win_host_check_workstation.yml
